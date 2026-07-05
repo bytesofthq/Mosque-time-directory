@@ -118,13 +118,46 @@ const startServer = async () => {
   await connectDB();
   console.log('MongoDB connected');
 
-  // Log Hadith count in MongoDB
+  // Log Hadith count in MongoDB (and auto-import if empty)
   try {
     const Hadith = require('./models/Hadith');
-    const totalHadiths = await Hadith.countDocuments();
+    let totalHadiths = await Hadith.countDocuments();
     console.log(`Total Hadith count in MongoDB: ${totalHadiths}`);
+
+    if (totalHadiths === 0) {
+      console.log('Hadith collection is empty. Attempting auto-import...');
+      if (fs.existsSync(hadithJsonPath)) {
+        const content = fs.readFileSync(hadithJsonPath, 'utf8');
+        const volumes = JSON.parse(content);
+        let flattened = [];
+        
+        volumes.forEach(volume => {
+          if (volume.books) {
+            volume.books.forEach(book => {
+              if (book.hadiths) {
+                book.hadiths.forEach(hadith => {
+                  flattened.push({
+                    volumeName: volume.name,
+                    bookName: book.name,
+                    info: hadith.info || '',
+                    by: hadith.by || '',
+                    text: hadith.text || ''
+                  });
+                });
+              }
+            });
+          }
+        });
+
+        console.log(`Auto-importing ${flattened.length} Hadiths into MongoDB...`);
+        const result = await Hadith.insertMany(flattened);
+        console.log(`Successfully auto-imported ${result.length} Hadiths into MongoDB.`);
+      } else {
+        console.error(`Cannot auto-import: Hadith JSON file not found at ${hadithJsonPath}`);
+      }
+    }
   } catch (error) {
-    console.error(`[Startup] Error querying Hadith collection: ${error.message}`);
+    console.error(`[Startup] Error during Hadith collection setup: ${error.message}`);
   }
   
   // Seed the admin
