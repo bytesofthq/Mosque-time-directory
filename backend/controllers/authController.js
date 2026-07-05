@@ -172,6 +172,9 @@ const registerAdminWithMosque = async (req, res) => {
       return res.status(400).json({ message: 'An account with this email already exists' });
     }
 
+    const mongoose = require('mongoose');
+    const adminId = new mongoose.Types.ObjectId();
+
     const mosque = new Mosque({
       mosqueName,
       address,
@@ -183,7 +186,7 @@ const registerAdminWithMosque = async (req, res) => {
       latitude: latitude ? parseFloat(latitude) : null,
       longitude: longitude ? parseFloat(longitude) : null,
       aboutMasjid: aboutMasjid || '',
-      createdBy: null
+      createdBy: adminId
     });
 
     const savedMosque = await mosque.save();
@@ -203,6 +206,7 @@ const registerAdminWithMosque = async (req, res) => {
     const verificationTokenExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
 
     const admin = new User({
+      _id: adminId,
       name,
       email: email.toLowerCase(),
       mobile,
@@ -215,9 +219,6 @@ const registerAdminWithMosque = async (req, res) => {
       emailVerificationExpires: verificationTokenExpires
     });
     const savedAdmin = await admin.save();
-
-    savedMosque.createdBy = savedAdmin._id;
-    await savedMosque.save();
 
     // Send verification email via Brevo
     await sendVerificationEmail(savedAdmin.email, savedAdmin.name, verificationToken);
