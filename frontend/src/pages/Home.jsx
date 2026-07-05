@@ -254,7 +254,7 @@ const formatTime = (time) => {
               <div>
                 <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                   <Compass className="h-5.5 w-5.5 text-teal-600 animate-spin-slow" />
-                  <span>Today's Lucknow Prayer Times (Aladhan)</span>
+                  <span>Today's Lucknow Prayer Times</span>
                 </h2>
                 <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider mt-1">
                   Lucknow, India (Hanfi) — {dates?.gregorian?.date}

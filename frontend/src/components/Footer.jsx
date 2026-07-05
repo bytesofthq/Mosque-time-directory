@@ -29,7 +29,7 @@ const Footer = () => {
         <div className="mt-4 sm:mt-0 flex items-center justify-center space-x-1.5 text-slate-400 text-xs font-semibold bg-slate-50 py-1.5 px-3.5 rounded-xl border border-slate-100/80">
           <span>Developed & Managed by</span>
           <a
-            href="https://bytesofthq.in"
+            href="https://bytesoft.in"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 hover:text-teal-700 transition-colors"

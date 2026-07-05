@@ -387,16 +387,63 @@ const deleteMosqueGalleryImage = async (req, res) => {
 let cachedHadith = null;
 let cachedDate = '';
 
+const splitIntoChunks = (text, maxLength = 450) => {
+  if (!text) return [];
+  const chunks = [];
+  let currentChunk = '';
+  
+  const sentences = text.match(/[^.!?]+[.!?]+(\s+|$)|[^.!?]+(\s+|$)/g) || [text];
+  
+  for (const sentence of sentences) {
+    if ((currentChunk + sentence).length <= maxLength) {
+      currentChunk += sentence;
+    } else {
+      if (currentChunk) {
+        chunks.push(currentChunk.trim());
+      }
+      if (sentence.length <= maxLength) {
+        currentChunk = sentence;
+      } else {
+        const words = sentence.split(/\s+/);
+        currentChunk = '';
+        for (const word of words) {
+          if ((currentChunk + ' ' + word).trim().length <= maxLength) {
+            currentChunk = (currentChunk + ' ' + word).trim();
+          } else {
+            if (currentChunk) {
+              chunks.push(currentChunk);
+            }
+            currentChunk = word;
+          }
+        }
+      }
+    }
+  }
+  if (currentChunk) {
+    chunks.push(currentChunk.trim());
+  }
+  return chunks;
+};
+
 const translateText = async (text, targetLang) => {
   if (!text) return '';
   try {
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|${targetLang}`;
-    const response = await fetch(url);
-    const data = await response.json();
-    if (data && data.responseData && data.responseData.translatedText) {
-      return data.responseData.translatedText;
+    const chunks = splitIntoChunks(text, 450);
+    const translatedChunks = [];
+    
+    for (const chunk of chunks) {
+      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=en|${targetLang}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      if (data && data.responseStatus === 200 && data.responseData && data.responseData.translatedText) {
+        translatedChunks.push(data.responseData.translatedText);
+      } else {
+        console.warn(`Translation API response warning/error (Status: ${data?.responseStatus}):`, data?.responseDetails || 'No details');
+        translatedChunks.push(chunk);
+      }
     }
-    return text;
+    
+    return translatedChunks.join(' ');
   } catch (err) {
     console.error(`Translation error to ${targetLang}:`, err.message);
     return text;
