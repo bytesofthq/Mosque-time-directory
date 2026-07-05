@@ -2,6 +2,7 @@ const Mosque = require('../models/Mosque');
 const PrayerTiming = require('../models/PrayerTiming');
 const Announcement = require('../models/Announcement');
 const User = require('../models/User');
+const Hadith = require('../models/Hadith');
 const path = require('path');
 const fs = require('fs');
 const { uploadToCloudinary } = require('../utils/cloudinaryHelper');
@@ -353,44 +354,6 @@ const deleteMosqueGalleryImage = async (req, res) => {
   }
 };
 
-let allHadiths = [];
-
-const loadHadiths = () => {
-  try {
-    const filePath = path.join(__dirname, '../../Complete-Sahih-Bukhari-Json/sahih_bukhari.json');
-    if (fs.existsSync(filePath)) {
-      const content = fs.readFileSync(filePath, 'utf8');
-      const volumes = JSON.parse(content);
-      let flattened = [];
-      volumes.forEach(volume => {
-        if (volume.books) {
-          volume.books.forEach(book => {
-            if (book.hadiths) {
-              book.hadiths.forEach(hadith => {
-                flattened.push({
-                  volumeName: volume.name,
-                  bookName: book.name,
-                  info: hadith.info || '',
-                  by: hadith.by || '',
-                  text: hadith.text || ''
-                });
-              });
-            }
-          });
-        }
-      });
-      allHadiths = flattened;
-      console.log(`Loaded ${allHadiths.length} hadiths successfully.`);
-    } else {
-      console.error('sahih_bukhari.json not found at:', filePath);
-    }
-  } catch (err) {
-    console.error('Error loading sahih_bukhari.json:', err.message);
-  }
-};
-
-loadHadiths();
-
 let cachedHadith = null;
 let cachedDate = '';
 
@@ -412,11 +375,12 @@ const translateText = async (text, targetLang) => {
 
 const getHadithOfTheDay = async (req, res) => {
   try {
-    if (allHadiths.length === 0) {
-      loadHadiths();
-      if (allHadiths.length === 0) {
-        return res.status(404).json({ message: 'Hadith database is not loaded yet' });
-      }
+    const totalCount = await Hadith.countDocuments();
+    if (totalCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No Hadith data found. Please import Hadith collection."
+      });
     }
 
     const todayStr = new Date().toDateString();
@@ -430,12 +394,18 @@ const getHadithOfTheDay = async (req, res) => {
     for (let i = 0; i < dateStr.length; i++) {
       hash = dateStr.charCodeAt(i) + ((hash << 5) - hash);
     }
-    const index = Math.abs(hash) % allHadiths.length;
-    const selected = allHadiths[index];
+    const index = Math.abs(hash) % totalCount;
+    const selected = await Hadith.findOne().skip(index);
+    if (!selected) {
+      return res.status(404).json({
+        success: false,
+        message: "Hadith not found at the generated index."
+      });
+    }
 
-    const reference = selected.info.replace(':', '').trim();
-    const narrator = selected.by.trim();
-    const englishText = selected.text.trim();
+    const reference = selected.info ? selected.info.replace(':', '').trim() : '';
+    const narrator = selected.by ? selected.by.trim() : '';
+    const englishText = selected.text ? selected.text.trim() : '';
 
     console.log(`Translating Hadith of the Day (Index: ${index}) to Hindi and Urdu...`);
     const hindiText = await translateText(englishText, 'hi');

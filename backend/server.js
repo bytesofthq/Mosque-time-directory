@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
 const connectDB = require('./config/db');
@@ -105,8 +106,26 @@ const seedRootAdmin = async () => {
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
+  // Check if Hadith JSON file exists
+  const hadithJsonPath = path.join(__dirname, './data/sahih_bukhari.json');
+  if (fs.existsSync(hadithJsonPath)) {
+    console.log(`[Startup] Hadith JSON file found at: ${hadithJsonPath}`);
+  } else {
+    console.error(`[Startup] Hadith JSON file NOT found. Path checked: ${hadithJsonPath}`);
+  }
+
   // Connect to DB first
   await connectDB();
+  console.log('MongoDB connected');
+
+  // Log Hadith count in MongoDB
+  try {
+    const Hadith = require('./models/Hadith');
+    const totalHadiths = await Hadith.countDocuments();
+    console.log(`Total Hadith count in MongoDB: ${totalHadiths}`);
+  } catch (error) {
+    console.error(`[Startup] Error querying Hadith collection: ${error.message}`);
+  }
   
   // Seed the admin
   await seedRootAdmin();
