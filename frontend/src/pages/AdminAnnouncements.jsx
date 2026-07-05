@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import api from '../utils/api';
+import api, { BACKEND_URL } from '../utils/api';
 import { Megaphone, Trash2, Calendar, Building, MapPin, X } from 'lucide-react';
 
 const AdminAnnouncements = () => {
@@ -91,7 +91,7 @@ const AdminAnnouncements = () => {
                         {ann.image && (
                           <div className="h-12 w-16 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0">
                             <img
-                              src={ann.image.startsWith('http') ? ann.image : `http://localhost:5000${ann.image}`}
+                              src={ann.image.startsWith('http') ? ann.image : `${BACKEND_URL}${ann.image}`}
                               alt={ann.title}
                               className="w-full h-full object-cover"
                             />

@@ -68,7 +68,8 @@ const seedRootAdmin = async () => {
         mobile: '9999999999',
         password: 'Admin@123', // Pre-save hook in User model will hash this automatically
         role: 'ROOT_ADMIN',
-        isActive: true
+        isActive: true,
+        isEmailVerified: true
       });
       await rootAdmin.save();
       console.log('====================================');
@@ -86,7 +87,8 @@ const seedRootAdmin = async () => {
         mobile: '9876543210',
         password: '123456',
         role: 'ROOT_ADMIN',
-        isActive: true
+        isActive: true,
+        isEmailVerified: true
       });
       await newAdmin.save();
       console.log('====================================');

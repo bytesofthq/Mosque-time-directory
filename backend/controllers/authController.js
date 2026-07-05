@@ -2,6 +2,8 @@ const User = require('../models/User');
 const Mosque = require('../models/Mosque');
 const PrayerTiming = require('../models/PrayerTiming');
 const generateToken = require('../utils/generateToken');
+const crypto = require('crypto');
+const { sendVerificationEmail } = require('../utils/emailHelper');
 
 // @desc    Auth user & get token
 // @route   POST /api/auth/login
@@ -22,6 +24,10 @@ const loginUser = async (req, res) => {
 
     if (!user.isActive) {
       return res.status(403).json({ message: 'Your account is deactivated. Please contact root admin.' });
+    }
+
+    if (!user.isEmailVerified) {
+      return res.status(403).json({ message: 'Please verify your email address before logging in. Check your inbox for the verification link.' });
     }
 
     const isMatch = await user.comparePassword(password);
@@ -193,6 +199,9 @@ const registerAdminWithMosque = async (req, res) => {
     });
     await defaultTimings.save();
 
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationTokenExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+
     const admin = new User({
       name,
       email: email.toLowerCase(),
@@ -200,28 +209,59 @@ const registerAdminWithMosque = async (req, res) => {
       password,
       role: 'MOSQUE_ADMIN',
       mosqueId: savedMosque._id,
-      isActive: true
+      isActive: true,
+      isEmailVerified: false,
+      emailVerificationToken: verificationToken,
+      emailVerificationExpires: verificationTokenExpires
     });
     const savedAdmin = await admin.save();
 
     savedMosque.createdBy = savedAdmin._id;
     await savedMosque.save();
 
+    // Send verification email via Brevo
+    await sendVerificationEmail(savedAdmin.email, savedAdmin.name, verificationToken);
+
     return res.status(201).json({
-      message: 'Mosque and administrator registered successfully',
-      user: {
-        _id: savedAdmin._id,
-        name: savedAdmin.name,
-        email: savedAdmin.email,
-        mobile: savedAdmin.mobile,
-        role: savedAdmin.role,
-        mosqueId: savedAdmin.mosqueId,
-        token: generateToken(savedAdmin._id)
-      }
+      message: 'Registration successful! Please check your email to verify your account before logging in.'
     });
   } catch (error) {
     console.error('Public mosque registration error:', error);
     return res.status(500).json({ message: 'Server error registering mosque and admin' });
+  }
+};
+
+// @desc    Verify user email
+// @route   GET /api/auth/verify-email
+// @access  Public
+const verifyEmail = async (req, res) => {
+  const { token } = req.query;
+
+  if (!token) {
+    return res.status(400).json({ message: 'Verification token is required.' });
+  }
+
+  try {
+    const user = await User.findOne({
+      emailVerificationToken: token,
+      emailVerificationExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid or expired email verification token.' });
+    }
+
+    user.isEmailVerified = true;
+    user.emailVerificationToken = null;
+    user.emailVerificationExpires = null;
+    await user.save();
+
+    return res.json({
+      message: 'Your email has been verified successfully! You can now log in.'
+    });
+  } catch (error) {
+    console.error('Email verification error:', error);
+    return res.status(500).json({ message: 'Server error during email verification.' });
   }
 };
 
@@ -230,5 +270,6 @@ module.exports = {
   getUserProfile,
   updateUserProfile,
   changePassword,
-  registerAdminWithMosque
+  registerAdminWithMosque,
+  verifyEmail
 };

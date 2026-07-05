@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import api from '../utils/api';
+import api, { BACKEND_URL } from '../utils/api';
 import { ImageIcon, Upload, X, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react';
 
 const Gallery = () => {
@@ -145,12 +145,12 @@ const Gallery = () => {
 
   const getImageUrl = (imagePath) => {
     if (!imagePath) {
-      return 'http://localhost:5000/uploads/default_mosque.png';
+      return `${BACKEND_URL}/uploads/default_mosque.png`;
     }
     if (imagePath.startsWith('http')) {
       return imagePath;
     }
-    return `http://localhost:5000${imagePath}`;
+    return `${BACKEND_URL}${imagePath}`;
   };
 
   if (loading) {

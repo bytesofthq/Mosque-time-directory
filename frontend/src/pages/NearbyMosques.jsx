@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../utils/api';
+import api, { BACKEND_URL } from '../utils/api';
 import { 
   Compass, 
   MapPin, 
@@ -19,12 +19,12 @@ const NearbyMosques = () => {
   // Helper to determine the image URL
   const getImageUrl = (imagePath) => {
     if (!imagePath) {
-      return 'http://localhost:5000/uploads/default_mosque.png';
+      return `${BACKEND_URL}/uploads/default_mosque.png`;
     }
     if (imagePath.startsWith('http')) {
       return imagePath;
     }
-    return `http://localhost:5000${imagePath}`;
+    return `${BACKEND_URL}${imagePath}`;
   };
 
   // Get user's location

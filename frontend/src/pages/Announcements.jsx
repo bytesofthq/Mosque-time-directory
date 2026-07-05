@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import api from '../utils/api';
+import api, { BACKEND_URL } from '../utils/api';
 import { Megaphone, Search, Plus, Edit2, Trash2, Calendar, X, Upload } from 'lucide-react';
 
 const Announcements = () => {
@@ -58,7 +58,7 @@ const Announcements = () => {
       description: ann.description || ''
     });
     setImageFile(null);
-    setImagePreview(ann.image ? (ann.image.startsWith('http') ? ann.image : `http://localhost:5000${ann.image}`) : '');
+    setImagePreview(ann.image ? (ann.image.startsWith('http') ? ann.image : `${BACKEND_URL}${ann.image}`) : '');
     setFormErrors({});
     setIsModalOpen(true);
   };
@@ -207,7 +207,7 @@ const Announcements = () => {
                 {ann.image && (
                   <div className="h-40 w-full bg-slate-50 rounded-xl overflow-hidden shadow-inner border border-slate-100">
                     <img
-                      src={ann.image.startsWith('http') ? ann.image : `http://localhost:5000${ann.image}`}
+                      src={ann.image.startsWith('http') ? ann.image : `${BACKEND_URL}${ann.image}`}
                       alt={ann.title}
                       className="w-full h-full object-cover"
                     />

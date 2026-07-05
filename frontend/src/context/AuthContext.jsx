@@ -43,12 +43,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (formData) => {
     try {
       const response = await api.post('/auth/register-mosque', formData);
-      const { token, ...userData } = response.data.user;
-
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(userData));
-      setUser(userData);
-      return { success: true };
+      return { success: true, message: response.data.message };
     } catch (error) {
       console.error('Registration failed:', error);
       const message = error.response?.data?.message || 'Registration failed. Please check inputs.';

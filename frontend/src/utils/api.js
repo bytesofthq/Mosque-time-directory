@@ -1,8 +1,11 @@
 import axios from 'axios';
 
+export const API_URL = import.meta.env.VITE_API_URL || 'https://mosque-time-directory-backend.onrender.com/api';
+export const BACKEND_URL = API_URL.replace(/\/api$/, '');
+
 // Create custom axios instance
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },

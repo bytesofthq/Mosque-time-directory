@@ -12,6 +12,7 @@ import MosqueDetail from './pages/MosqueDetail';
 import Login from './pages/Login';
 import RegisterMosque from './pages/RegisterMosque';
 import NearbyMosques from './pages/NearbyMosques';
+import VerifyEmail from './pages/VerifyEmail';
 
 // Root Admin Pages
 import AdminDashboard from './pages/AdminDashboard';
@@ -48,6 +49,7 @@ const App = () => {
           {/* AUTHENTICATION PORTAL */}
           {/* ========================================== */}
           <Route path="/login" element={<Login />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
 
           {/* ========================================== */}
           {/* ROOT ADMIN DASHBOARD PANEL */}

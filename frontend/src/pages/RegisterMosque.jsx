@@ -102,10 +102,10 @@ const RegisterMosque = () => {
     setLoading(false);
 
     if (result.success) {
-      showAlert('Registration successful! Redirecting...', 'success');
+      showAlert(result.message || 'Registration successful! Please check your email to verify your account.', 'success');
       setTimeout(() => {
-        navigate('/mosque-admin');
-      }, 1500);
+        navigate('/login');
+      }, 5000);
     } else {
       showAlert(result.message);
     }

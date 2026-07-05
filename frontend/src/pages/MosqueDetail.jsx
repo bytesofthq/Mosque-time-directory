@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import api from '../utils/api';
+import api, { BACKEND_URL } from '../utils/api';
 import { 
   MapPin, 
   Phone, 
@@ -41,12 +41,12 @@ const MosqueDetail = () => {
 
   const getImageUrl = (imagePath) => {
     if (!imagePath) {
-      return 'http://localhost:5000/uploads/default_mosque.png';
+      return `${BACKEND_URL}/uploads/default_mosque.png`;
     }
     if (imagePath.startsWith('http')) {
       return imagePath;
     }
-    return `http://localhost:5000${imagePath}`;
+    return `${BACKEND_URL}${imagePath}`;
   };
 
   if (loading) {
@@ -263,7 +263,7 @@ const MosqueDetail = () => {
                     {ann.image && (
                       <div className="h-32 md:w-44 w-full flex-shrink-0 bg-slate-100 rounded-xl overflow-hidden">
                         <img
-                          src={ann.image.startsWith('http') ? ann.image : `http://localhost:5000${ann.image}`}
+                          src={ann.image.startsWith('http') ? ann.image : `${BACKEND_URL}${ann.image}`}
                           alt={ann.title}
                           className="w-full h-full object-cover"
                         />
