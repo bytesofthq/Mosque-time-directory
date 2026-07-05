@@ -8,10 +8,13 @@ const sendVerificationEmail = async (email, name, token) => {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   const verificationLink = `${frontendUrl}/verify-email?token=${token}`;
 
+  const senderEmail = process.env.SENDER_EMAIL || 'mohammeduzaid2@gmail.com';
+  const senderName = process.env.SENDER_NAME || 'Salah Directory';
+
   const body = {
     sender: {
-      name: "Salah Directory",
-      email: "no-reply@salahdirectory.com"
+      name: senderName,
+      email: senderEmail
     },
     to: [
       {
