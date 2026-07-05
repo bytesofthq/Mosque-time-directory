@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api, { BACKEND_URL } from '../utils/api';
 import { Search, MapPin, ArrowRight, Compass, Navigation, BookOpen } from 'lucide-react';
 
 const Home = () => {
+  const navigate = useNavigate();
   const [mosques, setMosques] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -14,12 +15,44 @@ const Home = () => {
   const [dates, setDates] = useState({});
   const [hadith, setHadith] = useState(null);
   const [hadithLang, setHadithLang] = useState('hi');
+  
+  // Suggestions states
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Debounce search query
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  // Fetch suggestions based on debounced query
+  useEffect(() => {
+    if (debouncedSearch.trim().length > 1) {
+      const fetchSuggestions = async () => {
+        try {
+          const response = await api.get('/public/mosques', {
+            params: { search: debouncedSearch, limit: 5 }
+          });
+          setSuggestions(response.data.mosques);
+        } catch (error) {
+          console.error('Error fetching suggestions:', error);
+        }
+      };
+      fetchSuggestions();
+    } else {
+      setSuggestions([]);
+    }
+  }, [debouncedSearch]);
 
   const fetchMosques = async () => {
     setLoading(true);
     try {
       const response = await api.get('/public/mosques', {
-        params: { search, area, page, limit: 6 }
+        params: { page, limit: 6 }
       });
       setMosques(response.data.mosques);
       setTotalPages(response.data.pages);
@@ -36,18 +69,21 @@ const Home = () => {
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    setPage(1);
-    fetchMosques();
+    setShowSuggestions(false);
+    navigate(`/search?q=${search}&area=${area}`);
   };
 
   const handleClear = () => {
     setSearch('');
     setArea('');
-    setPage(1);
-    // Trigger search after state clear
-    setTimeout(() => {
-      fetchMosques();
-    }, 0);
+    setSuggestions([]);
+    setShowSuggestions(false);
+  };
+
+  const handleSuggestionClick = (mosque) => {
+    setSearch(mosque.mosqueName);
+    setShowSuggestions(false);
+    navigate(`/mosques/${mosque._id}`);
   };
 
   // Helper to determine the image URL
@@ -151,9 +187,32 @@ const formatTime = (time) => {
               type="text"
               placeholder="Search by Mosque Name..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setShowSuggestions(true);
+              }}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
               className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:border-transparent text-slate-800 placeholder-slate-400 transition-all font-medium"
             />
+            {/* Suggestions Dropdown */}
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute left-0 right-0 mt-2 bg-white border border-slate-100 rounded-xl shadow-xl z-30 max-h-60 overflow-y-auto divide-y divide-slate-50 text-left">
+                {suggestions.map((m) => (
+                  <div
+                    key={m._id}
+                    className="px-4 py-3 hover:bg-teal-50/40 cursor-pointer transition-colors flex items-center justify-between group"
+                    onMouseDown={() => handleSuggestionClick(m)}
+                  >
+                    <div>
+                      <div className="font-bold text-slate-800 text-sm group-hover:text-teal-700 transition-colors">{m.mosqueName}</div>
+                      <div className="text-slate-400 text-xs font-semibold">{m.area}, {m.city}</div>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-teal-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Area Search */}

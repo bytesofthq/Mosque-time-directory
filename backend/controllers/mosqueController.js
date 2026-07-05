@@ -180,11 +180,41 @@ const getPublicMosques = async (req, res) => {
     const area = req.query.area || '';
 
     const query = {};
+    const andConditions = [];
+
     if (search) {
-      query.mosqueName = { $regex: search, $options: 'i' };
+      const searchWords = search.trim().split(/\s+/).filter(Boolean);
+      if (searchWords.length > 0) {
+        searchWords.forEach(word => {
+          andConditions.push({
+            $or: [
+              { mosqueName: { $regex: word, $options: 'i' } },
+              { area: { $regex: word, $options: 'i' } },
+              { city: { $regex: word, $options: 'i' } },
+              { address: { $regex: word, $options: 'i' } }
+            ]
+          });
+        });
+      }
     }
+
     if (area) {
-      query.area = { $regex: area, $options: 'i' };
+      const areaWords = area.trim().split(/\s+/).filter(Boolean);
+      if (areaWords.length > 0) {
+        areaWords.forEach(word => {
+          andConditions.push({
+            $or: [
+              { area: { $regex: word, $options: 'i' } },
+              { city: { $regex: word, $options: 'i' } },
+              { address: { $regex: word, $options: 'i' } }
+            ]
+          });
+        });
+      }
+    }
+
+    if (andConditions.length > 0) {
+      query.$and = andConditions;
     }
 
     const total = await Mosque.countDocuments(query);

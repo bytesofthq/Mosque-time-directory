@@ -13,6 +13,7 @@ import Login from './pages/Login';
 import RegisterMosque from './pages/RegisterMosque';
 import NearbyMosques from './pages/NearbyMosques';
 import VerifyEmail from './pages/VerifyEmail';
+import SearchResults from './pages/SearchResults';
 
 // Root Admin Pages
 import AdminDashboard from './pages/AdminDashboard';
@@ -43,6 +44,7 @@ const App = () => {
             <Route path="mosques/:id" element={<MosqueDetail />} />
             <Route path="register-mosque" element={<RegisterMosque />} />
             <Route path="nearby-mosques" element={<NearbyMosques />} />
+            <Route path="search" element={<SearchResults />} />
           </Route>
 
           {/* ========================================== */}

@@ -183,7 +183,7 @@ const MosqueDetail = () => {
               <span>Prayer Timings</span>
             </h2>
             
-            <div className="overflow-hidden border border-slate-100 rounded-xl">
+            <div className="overflow-x-auto border border-slate-100 rounded-xl">
               <table className="min-w-full divide-y divide-slate-100">
                 <thead className="bg-slate-50">
                   <tr>
