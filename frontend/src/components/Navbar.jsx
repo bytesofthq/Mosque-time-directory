@@ -1,7 +1,8 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Compass, LogOut, LayoutDashboard, User } from 'lucide-react';
+import { LogOut, LayoutDashboard, User } from 'lucide-react';
+import logo from '../assets/logo.png';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -19,9 +20,14 @@ const Navbar = () => {
           {/* Logo Section */}
           <div className="flex items-center">
             <Link to="/" className="flex items-center space-x-2 text-teal-700 hover:text-teal-800 transition-colors">
-              <Compass className="h-8 w-8 text-teal-600 animate-pulse" />
+              <img 
+                src={logo} 
+                alt="Salah Directory Logo" 
+                className="w-auto object-contain" 
+                style={{ height: '40px' }} 
+              />
               <span className="font-extrabold text-xl tracking-tight">
-                Mosque<span className="text-secondary-600">Directory</span>
+                Salah<span className="text-secondary-600">Directory</span>
               </span>
             </Link>
           </div>
@@ -34,6 +40,22 @@ const Navbar = () => {
             >
               Home
             </Link>
+
+            <Link
+              to="/nearby-mosques"
+              className="text-slate-600 hover:text-teal-700 px-3 py-2 rounded-md text-sm font-semibold transition-colors"
+            >
+              Find Nearby
+            </Link>
+
+            {!user && (
+              <Link
+                to="/register-mosque"
+                className="text-slate-600 hover:text-teal-700 px-3 py-2 rounded-md text-sm font-semibold transition-colors"
+              >
+                Register your mosque
+              </Link>
+            )}
 
             {user ? (
               <>

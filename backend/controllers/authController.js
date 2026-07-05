@@ -1,4 +1,6 @@
 const User = require('../models/User');
+const Mosque = require('../models/Mosque');
+const PrayerTiming = require('../models/PrayerTiming');
 const generateToken = require('../utils/generateToken');
 
 // @desc    Auth user & get token
@@ -129,9 +131,104 @@ const changePassword = async (req, res) => {
   }
 };
 
+// @desc    Register a new Mosque Admin and their Mosque
+// @route   POST /api/auth/register-mosque
+// @access  Public
+const registerAdminWithMosque = async (req, res) => {
+  const {
+    name,
+    email,
+    mobile,
+    password,
+    mosqueName,
+    address,
+    area,
+    city,
+    state,
+    pincode,
+    googleMapLink,
+    latitude,
+    longitude,
+    aboutMasjid
+  } = req.body;
+
+  if (!name || !email || !mobile || !password) {
+    return res.status(400).json({ message: 'All admin registration fields are required' });
+  }
+
+  if (!mosqueName || !address || !area || !city || !state || !pincode || !googleMapLink) {
+    return res.status(400).json({ message: 'All basic mosque fields are required' });
+  }
+
+  try {
+    const emailExists = await User.findOne({ email: email.toLowerCase() });
+    if (emailExists) {
+      return res.status(400).json({ message: 'An account with this email already exists' });
+    }
+
+    const mosque = new Mosque({
+      mosqueName,
+      address,
+      area,
+      city,
+      state,
+      pincode,
+      googleMapLink,
+      latitude: latitude ? parseFloat(latitude) : null,
+      longitude: longitude ? parseFloat(longitude) : null,
+      aboutMasjid: aboutMasjid || '',
+      createdBy: null
+    });
+
+    const savedMosque = await mosque.save();
+
+    const defaultTimings = new PrayerTiming({
+      mosqueId: savedMosque._id,
+      Fajr: { azan: '05:00', jamaat: '05:30' },
+      Zuhr: { azan: '12:30', jamaat: '01:00' },
+      Asr: { azan: '04:30', jamaat: '05:00' },
+      Maghrib: { azan: '06:45', jamaat: '06:50' },
+      Isha: { azan: '08:15', jamaat: '08:30' },
+      Jumma: { khutbah: '01:00', jamaat: '01:30' }
+    });
+    await defaultTimings.save();
+
+    const admin = new User({
+      name,
+      email: email.toLowerCase(),
+      mobile,
+      password,
+      role: 'MOSQUE_ADMIN',
+      mosqueId: savedMosque._id,
+      isActive: true
+    });
+    const savedAdmin = await admin.save();
+
+    savedMosque.createdBy = savedAdmin._id;
+    await savedMosque.save();
+
+    return res.status(201).json({
+      message: 'Mosque and administrator registered successfully',
+      user: {
+        _id: savedAdmin._id,
+        name: savedAdmin.name,
+        email: savedAdmin.email,
+        mobile: savedAdmin.mobile,
+        role: savedAdmin.role,
+        mosqueId: savedAdmin.mosqueId,
+        token: generateToken(savedAdmin._id)
+      }
+    });
+  } catch (error) {
+    console.error('Public mosque registration error:', error);
+    return res.status(500).json({ message: 'Server error registering mosque and admin' });
+  }
+};
+
 module.exports = {
   loginUser,
   getUserProfile,
   updateUserProfile,
-  changePassword
+  changePassword,
+  registerAdminWithMosque
 };

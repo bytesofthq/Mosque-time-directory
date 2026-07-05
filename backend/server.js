@@ -66,6 +66,24 @@ const seedRootAdmin = async () => {
       console.log('Password: Admin@123');
       console.log('====================================');
     }
+
+    const newAdminExists = await User.findOne({ email: 'mohammeduzaid2@gmail.com' });
+    if (!newAdminExists) {
+      const newAdmin = new User({
+        name: 'Root Admin',
+        email: 'mohammeduzaid2@gmail.com',
+        mobile: '9876543210',
+        password: '123456',
+        role: 'ROOT_ADMIN',
+        isActive: true
+      });
+      await newAdmin.save();
+      console.log('====================================');
+      console.log('NEW ROOT ADMIN CREATED SUCCESSFULLY!');
+      console.log('Email: mohammeduzaid2@gmail.com');
+      console.log('Password: 123456');
+      console.log('====================================');
+    }
   } catch (error) {
     console.error('Error seeding root admin:', error.message);
   }

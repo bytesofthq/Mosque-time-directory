@@ -10,6 +10,10 @@ const MosqueSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  images: {
+    type: [String],
+    default: []
+  },
   address: {
     type: String,
     required: true

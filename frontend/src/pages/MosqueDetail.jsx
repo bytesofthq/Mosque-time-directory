@@ -13,7 +13,8 @@ import {
   Clock,
   Compass,
   Megaphone,
-  Info
+  Info,
+  ImageIcon
 } from 'lucide-react';
 
 const MosqueDetail = () => {
@@ -40,7 +41,7 @@ const MosqueDetail = () => {
 
   const getImageUrl = (imagePath) => {
     if (!imagePath) {
-      return 'https://images.unsplash.com/photo-1542810634-71277d95dcbb?auto=format&fit=crop&q=80&w=1200';
+      return 'http://localhost:5000/uploads/default_mosque.png';
     }
     if (imagePath.startsWith('http')) {
       return imagePath;
@@ -139,6 +140,28 @@ const MosqueDetail = () => {
                 </span>
               </div>
             </div>
+
+            {/* Mosque Gallery Section */}
+            {mosque.images && mosque.images.length > 0 && (
+              <div className="bg-white rounded-2xl border border-slate-100 p-6 sm:p-8 mt-8 animate-fadeIn">
+                <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2 mb-4">
+                  <ImageIcon className="h-5 w-5 text-teal-600" />
+                  <span>Photo Gallery</span>
+                </h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {mosque.images.map((imgUrl, index) => (
+                    <div key={index} className="group relative aspect-video rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shadow-sm cursor-zoom-in">
+                      <img
+                        src={getImageUrl(imgUrl)}
+                        alt={`${mosque.mosqueName} gallery ${index + 1}`}
+                        className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
+                        onClick={() => window.open(getImageUrl(imgUrl), '_blank')}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             
             <div className="mt-6 flex">
               <a

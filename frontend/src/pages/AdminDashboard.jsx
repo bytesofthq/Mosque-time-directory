@@ -61,7 +61,7 @@ const AdminDashboard = () => {
       <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Assalamu Alaikum, {user?.name}!</h2>
-          <p className="text-slate-500 text-sm font-semibold mt-1">Welcome to the Mosque Directory Root Administrator portal.</p>
+          <p className="text-slate-500 text-sm font-semibold mt-1">Welcome to the Salah Directory Root Administrator portal.</p>
         </div>
         <div className="flex items-center space-x-2 text-xs font-bold text-teal-700 bg-teal-50 border border-teal-100 px-4 py-2 rounded-xl">
           <Clock className="h-4 w-4" />

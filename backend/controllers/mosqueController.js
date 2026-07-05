@@ -2,6 +2,8 @@ const Mosque = require('../models/Mosque');
 const PrayerTiming = require('../models/PrayerTiming');
 const Announcement = require('../models/Announcement');
 const User = require('../models/User');
+const path = require('path');
+const fs = require('fs');
 const { uploadToCloudinary } = require('../utils/cloudinaryHelper');
 
 // ==========================================
@@ -228,6 +230,237 @@ const getPublicMosqueDetails = async (req, res) => {
   }
 };
 
+// @desc    Get nearby mosques by radius filtering (100m, 200m, 500m, 1km)
+// @route   GET /api/public/mosques-nearby
+// @access  Public
+const getNearbyMosques = async (req, res) => {
+  try {
+    const { lat, lng, radius } = req.query;
+
+    if (!lat || !lng || !radius) {
+      return res.status(400).json({ message: 'Latitude, longitude, and radius are required parameters' });
+    }
+
+    const userLat = parseFloat(lat);
+    const userLng = parseFloat(lng);
+    const filterRadius = parseFloat(radius);
+
+    const mosques = await Mosque.find({
+      latitude: { $ne: null },
+      longitude: { $ne: null }
+    });
+
+    const getDistance = (lat1, lon1, lat2, lon2) => {
+      const R = 6371e3; // meters
+      const phi1 = lat1 * Math.PI / 180;
+      const phi2 = lat2 * Math.PI / 180;
+      const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+      const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+
+      const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+                Math.cos(phi1) * Math.cos(phi2) *
+                Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+      return R * c; // distance in meters
+    };
+
+    const nearbyMosques = mosques
+      .map(mosque => {
+        const distance = getDistance(userLat, userLng, mosque.latitude, mosque.longitude);
+        return { ...mosque.toObject(), distance };
+      })
+      .filter(mosque => mosque.distance <= filterRadius)
+      .sort((a, b) => a.distance - b.distance);
+
+    return res.json(nearbyMosques);
+  } catch (error) {
+    console.error('Get nearby mosques error:', error);
+    return res.status(500).json({ message: 'Server error retrieving nearby mosques' });
+  }
+};
+
+// @desc    Upload multiple gallery images for mosque
+// @route   POST /api/mosque/my-mosque/upload-gallery
+// @access  Private (Mosque Admin)
+const uploadMosqueGallery = async (req, res) => {
+  try {
+    if (!req.user.mosqueId) {
+      return res.status(400).json({ message: 'No mosque is currently assigned to your account' });
+    }
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: 'Please upload at least one image file' });
+    }
+
+    const mosque = await Mosque.findById(req.user.mosqueId);
+    if (!mosque) {
+      return res.status(404).json({ message: 'Assigned mosque not found' });
+    }
+
+    const imageUrls = [];
+    for (const file of req.files) {
+      const url = await uploadToCloudinary(file);
+      imageUrls.push(url);
+    }
+
+    if (!mosque.images) {
+      mosque.images = [];
+    }
+    mosque.images.push(...imageUrls);
+    await mosque.save();
+
+    return res.json({
+      message: 'Gallery images uploaded successfully',
+      images: mosque.images
+    });
+  } catch (error) {
+    console.error('Gallery upload error:', error);
+    return res.status(500).json({ message: 'Server error uploading gallery images' });
+  }
+};
+
+// @desc    Delete a gallery image
+// @route   DELETE /api/mosque/my-mosque/gallery
+// @access  Private (Mosque Admin)
+const deleteMosqueGalleryImage = async (req, res) => {
+  const { imageUrl } = req.body;
+
+  if (!imageUrl) {
+    return res.status(400).json({ message: 'imageUrl is required' });
+  }
+
+  try {
+    if (!req.user.mosqueId) {
+      return res.status(400).json({ message: 'No mosque is assigned to your account' });
+    }
+
+    const mosque = await Mosque.findById(req.user.mosqueId);
+    if (!mosque) {
+      return res.status(404).json({ message: 'Mosque not found' });
+    }
+
+    mosque.images = mosque.images.filter(img => img !== imageUrl);
+    await mosque.save();
+
+    return res.json({
+      message: 'Gallery image deleted successfully',
+      images: mosque.images
+    });
+  } catch (error) {
+    console.error('Gallery image deletion error:', error);
+    return res.status(500).json({ message: 'Server error deleting gallery image' });
+  }
+};
+
+let allHadiths = [];
+
+const loadHadiths = () => {
+  try {
+    const filePath = path.join(__dirname, '../../Complete-Sahih-Bukhari-Json/sahih_bukhari.json');
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf8');
+      const volumes = JSON.parse(content);
+      let flattened = [];
+      volumes.forEach(volume => {
+        if (volume.books) {
+          volume.books.forEach(book => {
+            if (book.hadiths) {
+              book.hadiths.forEach(hadith => {
+                flattened.push({
+                  volumeName: volume.name,
+                  bookName: book.name,
+                  info: hadith.info || '',
+                  by: hadith.by || '',
+                  text: hadith.text || ''
+                });
+              });
+            }
+          });
+        }
+      });
+      allHadiths = flattened;
+      console.log(`Loaded ${allHadiths.length} hadiths successfully.`);
+    } else {
+      console.error('sahih_bukhari.json not found at:', filePath);
+    }
+  } catch (err) {
+    console.error('Error loading sahih_bukhari.json:', err.message);
+  }
+};
+
+loadHadiths();
+
+let cachedHadith = null;
+let cachedDate = '';
+
+const translateText = async (text, targetLang) => {
+  if (!text) return '';
+  try {
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|${targetLang}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    if (data && data.responseData && data.responseData.translatedText) {
+      return data.responseData.translatedText;
+    }
+    return text;
+  } catch (err) {
+    console.error(`Translation error to ${targetLang}:`, err.message);
+    return text;
+  }
+};
+
+const getHadithOfTheDay = async (req, res) => {
+  try {
+    if (allHadiths.length === 0) {
+      loadHadiths();
+      if (allHadiths.length === 0) {
+        return res.status(404).json({ message: 'Hadith database is not loaded yet' });
+      }
+    }
+
+    const todayStr = new Date().toDateString();
+    if (cachedHadith && cachedDate === todayStr) {
+      return res.json(cachedHadith);
+    }
+
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+    let hash = 0;
+    for (let i = 0; i < dateStr.length; i++) {
+      hash = dateStr.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % allHadiths.length;
+    const selected = allHadiths[index];
+
+    const reference = selected.info.replace(':', '').trim();
+    const narrator = selected.by.trim();
+    const englishText = selected.text.trim();
+
+    console.log(`Translating Hadith of the Day (Index: ${index}) to Hindi and Urdu...`);
+    const hindiText = await translateText(englishText, 'hi');
+    const urduText = await translateText(englishText, 'ur');
+
+    const result = {
+      reference,
+      narrator,
+      text: {
+        en: englishText,
+        hi: hindiText,
+        ur: urduText
+      }
+    };
+
+    cachedHadith = result;
+    cachedDate = todayStr;
+
+    return res.json(result);
+  } catch (error) {
+    console.error('Error fetching Hadith of the Day:', error);
+    return res.status(500).json({ message: 'Server error retrieving Hadith of the Day' });
+  }
+};
+
 module.exports = {
   getMyMosque,
   updateMyMosque,
@@ -235,5 +468,9 @@ module.exports = {
   getMyMosqueTimings,
   updateMyMosqueTimings,
   getPublicMosques,
-  getPublicMosqueDetails
+  getPublicMosqueDetails,
+  getNearbyMosques,
+  uploadMosqueGallery,
+  deleteMosqueGalleryImage,
+  getHadithOfTheDay
 };

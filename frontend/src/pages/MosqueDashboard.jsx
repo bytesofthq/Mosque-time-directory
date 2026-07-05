@@ -24,7 +24,7 @@ const MosqueDashboard = () => {
 
   const getImageUrl = (imagePath) => {
     if (!imagePath) {
-      return 'https://images.unsplash.com/photo-1542810634-71277d95dcbb?auto=format&fit=crop&q=80&w=800';
+      return 'http://localhost:5000/uploads/default_mosque.png';
     }
     if (imagePath.startsWith('http')) {
       return imagePath;

@@ -10,6 +10,8 @@ import DashboardLayout from './layouts/DashboardLayout';
 import Home from './pages/Home';
 import MosqueDetail from './pages/MosqueDetail';
 import Login from './pages/Login';
+import RegisterMosque from './pages/RegisterMosque';
+import NearbyMosques from './pages/NearbyMosques';
 
 // Root Admin Pages
 import AdminDashboard from './pages/AdminDashboard';
@@ -38,6 +40,8 @@ const App = () => {
           <Route path="/" element={<PublicLayout />}>
             <Route index element={<Home />} />
             <Route path="mosques/:id" element={<MosqueDetail />} />
+            <Route path="register-mosque" element={<RegisterMosque />} />
+            <Route path="nearby-mosques" element={<NearbyMosques />} />
           </Route>
 
           {/* ========================================== */}

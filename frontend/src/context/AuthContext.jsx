@@ -40,6 +40,22 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  const register = async (formData) => {
+    try {
+      const response = await api.post('/auth/register-mosque', formData);
+      const { token, ...userData } = response.data.user;
+
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
+      return { success: true };
+    } catch (error) {
+      console.error('Registration failed:', error);
+      const message = error.response?.data?.message || 'Registration failed. Please check inputs.';
+      return { success: false, message };
+    }
+  };
+
   const updateProfileState = (updatedUser) => {
     // Update local storage and context state
     const currentToken = localStorage.getItem('token');
@@ -48,7 +64,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, updateProfileState }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, register, updateProfileState }}>
       {children}
     </AuthContext.Provider>
   );
