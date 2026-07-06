@@ -460,18 +460,25 @@ const getHadithOfTheDay = async (req, res) => {
       });
     }
 
+    const { refresh } = req.query;
     const todayStr = new Date().toDateString();
-    if (cachedHadith && cachedDate === todayStr) {
+    if (refresh !== 'true' && cachedHadith && cachedDate === todayStr) {
       return res.json(cachedHadith);
     }
 
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
-    let hash = 0;
-    for (let i = 0; i < dateStr.length; i++) {
-      hash = dateStr.charCodeAt(i) + ((hash << 5) - hash);
+    let index;
+    if (refresh === 'true') {
+      index = Math.floor(Math.random() * totalCount);
+    } else {
+      const today = new Date();
+      const dateStr = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+      let hash = 0;
+      for (let i = 0; i < dateStr.length; i++) {
+        hash = dateStr.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      index = Math.abs(hash) % totalCount;
     }
-    const index = Math.abs(hash) % totalCount;
+
     const selected = await Hadith.findOne().skip(index);
     if (!selected) {
       return res.status(404).json({
@@ -484,9 +491,32 @@ const getHadithOfTheDay = async (req, res) => {
     const narrator = selected.by ? selected.by.trim() : '';
     const englishText = selected.text ? selected.text.trim() : '';
 
-    console.log(`Translating Hadith of the Day (Index: ${index}) to Hindi and Urdu...`);
-    const hindiText = await translateText(englishText, 'hi');
-    const urduText = await translateText(englishText, 'ur');
+    let hindiText = selected.textHindi ? selected.textHindi.trim() : '';
+    let urduText = selected.textUrdu ? selected.textUrdu.trim() : '';
+    let needsSave = false;
+
+    if (!hindiText) {
+      console.log(`Translating Hadith (Index: ${index}) to Hindi...`);
+      hindiText = await translateText(englishText, 'hi');
+      selected.textHindi = hindiText;
+      needsSave = true;
+    }
+
+    if (!urduText) {
+      console.log(`Translating Hadith (Index: ${index}) to Urdu...`);
+      urduText = await translateText(englishText, 'ur');
+      selected.textUrdu = urduText;
+      needsSave = true;
+    }
+
+    if (needsSave) {
+      try {
+        await selected.save();
+        console.log(`Saved translations to database for Hadith: ${reference}`);
+      } catch (saveError) {
+        console.error('Error saving translation cache to database:', saveError.message);
+      }
+    }
 
     const result = {
       reference,
@@ -498,8 +528,10 @@ const getHadithOfTheDay = async (req, res) => {
       }
     };
 
-    cachedHadith = result;
-    cachedDate = todayStr;
+    if (refresh !== 'true') {
+      cachedHadith = result;
+      cachedDate = todayStr;
+    }
 
     return res.json(result);
   } catch (error) {

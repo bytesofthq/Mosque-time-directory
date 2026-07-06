@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api, { BACKEND_URL } from '../utils/api';
-import { Search, MapPin, ArrowRight, Compass, Navigation, BookOpen } from 'lucide-react';
+import { Search, MapPin, ArrowRight, Compass, Navigation, BookOpen, RefreshCw } from 'lucide-react';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -15,6 +15,7 @@ const Home = () => {
   const [dates, setDates] = useState({});
   const [hadith, setHadith] = useState(null);
   const [hadithLang, setHadithLang] = useState('hi');
+  const [refreshingHadith, setRefreshingHadith] = useState(false);
   
   // Suggestions states
   const [suggestions, setSuggestions] = useState([]);
@@ -98,38 +99,46 @@ const Home = () => {
   };
 
 
-useEffect(() => {
-  const fetchPrayerTimes = async () => {
-    try {
-      const res = await fetch(
-        "https://api.aladhan.com/v1/timingsByCity?city=Lucknow&country=India&method=1&school=1"
-      );
-
-      const data = await res.json();
-
-      console.log(data.data.timings);
-      console.log(data.data.date);
-
-      setPrayerTimings(data.data.timings);
-      setDates(data.data.date);
-
-    } catch (error) {
-      console.error(error);
+  const fetchHadith = async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshingHadith(true);
     }
-  };
-
-  const fetchHadith = async () => {
     try {
-      const response = await api.get('/public/hadith-of-the-day');
+      const url = isRefresh ? '/public/hadith-of-the-day?refresh=true' : '/public/hadith-of-the-day';
+      const response = await api.get(url);
       setHadith(response.data);
     } catch (error) {
-      console.error('Error fetching Hadith of the day:', error);
+      console.error('Error fetching Hadith:', error);
+    } finally {
+      if (isRefresh) {
+        setRefreshingHadith(false);
+      }
     }
   };
 
-  fetchPrayerTimes();
-  fetchHadith();
-}, []);
+  useEffect(() => {
+    const fetchPrayerTimes = async () => {
+      try {
+        const res = await fetch(
+          "https://api.aladhan.com/v1/timingsByCity?city=Lucknow&country=India&method=1&school=1"
+        );
+
+        const data = await res.json();
+
+        console.log(data.data.timings);
+        console.log(data.data.date);
+
+        setPrayerTimings(data.data.timings);
+        setDates(data.data.date);
+
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    fetchPrayerTimes();
+    fetchHadith();
+  }, []);
 
 const formatTime = (time) => {
   if (!time) return "--:--";
@@ -283,6 +292,22 @@ const formatTime = (time) => {
                 </div>
               ))}
             </div>
+
+            {/* Disclaimer / Safety Margin Warning */}
+            <div className="mt-6 pt-4 border-t border-slate-100 flex flex-col gap-2 text-xs sm:text-sm text-slate-500 font-medium">
+              <div className="flex items-start gap-2">
+                <span className="bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider shrink-0 mt-0.5 border border-amber-100">EN</span>
+                <span>Prayer times are approximate. Please observe a 2-minute safety margin before Salah.</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider shrink-0 mt-0.5 border border-amber-100">HI</span>
+                <span>नमाज़ के समय अनुमानित हैं। कृपया नमाज़ से पहले 2 मिनट का अतिरिक्त समय रखें।</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider shrink-0 mt-0.5 border border-amber-100">UR</span>
+                <span className="font-nastaliq leading-relaxed">نماز کے اوقات تخمینی ہیں۔ براہِ کرم نماز سے پہلے 2 منٹ کا احتیاطی وقفہ ضرور رکھیں۔</span>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -331,16 +356,27 @@ const formatTime = (time) => {
 
               <div className="space-y-4">
                 <p 
-                  className={`text-slate-700 leading-relaxed font-semibold italic text-lg sm:text-xl ${
+                  className={`text-slate-700 leading-relaxed font-semibold italic text-lg sm:text-xl whitespace-pre-line ${
                     hadithLang === 'ur' ? 'text-right font-nastaliq leading-loose' : ''
                   }`}
                   dir={hadithLang === 'ur' ? 'rtl' : 'ltr'}
                 >
                   "{hadith.text[hadithLang]}"
                 </p>
-                <div className="pt-2 flex justify-between items-center text-xs font-bold text-slate-400">
-                  <span>— {hadith.narrator}</span>
-                  <span className="uppercase tracking-wider">Sahih al-Bukhari</span>
+                <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs font-bold text-slate-400">
+                  <div className="flex items-center gap-4">
+                    <span>— {hadith.narrator}</span>
+                    <span className="uppercase tracking-wider">Sahih al-Bukhari</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fetchHadith(true)}
+                    disabled={refreshingHadith}
+                    className="inline-flex items-center gap-2 bg-teal-50 hover:bg-teal-100 active:scale-95 text-teal-800 px-4 py-2 rounded-xl transition-all shadow-sm border border-teal-100 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${refreshingHadith ? 'animate-spin' : ''}`} />
+                    Get New Hadith
+                  </button>
                 </div>
               </div>
             </div>

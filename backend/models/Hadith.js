@@ -20,6 +20,14 @@ const HadithSchema = new mongoose.Schema({
   text: {
     type: String,
     default: ''
+  },
+  textHindi: {
+    type: String,
+    default: ''
+  },
+  textUrdu: {
+    type: String,
+    default: ''
   }
 });
 

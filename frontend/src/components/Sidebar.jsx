@@ -1,13 +1,13 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { 
-  LayoutDashboard, 
-  MapPin, 
-  Users, 
-  Megaphone, 
-  User, 
-  LogOut, 
+import {
+  LayoutDashboard,
+  MapPin,
+  Users,
+  Megaphone,
+  User,
+  LogOut,
   Compass,
   Clock,
   Image as ImageIcon,
@@ -55,7 +55,7 @@ const Sidebar = () => {
         <div className="flex items-center space-x-2">
           <Compass className="h-7 w-7 text-emerald-400" />
           <span className="font-black text-lg tracking-wide text-white">
-            Mosque<span className="text-emerald-400">Hub</span>
+            Salah<span className="text-emerald-400">Directory</span>
           </span>
         </div>
       </div>
@@ -77,10 +77,9 @@ const Sidebar = () => {
             to={link.path}
             end
             className={({ isActive }) =>
-              `flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                isActive
-                  ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25 scale-[1.02]'
-                  : 'text-teal-100 hover:bg-teal-800/60 hover:text-white'
+              `flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${isActive
+                ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25 scale-[1.02]'
+                : 'text-teal-100 hover:bg-teal-800/60 hover:text-white'
               }`
             }
           >
