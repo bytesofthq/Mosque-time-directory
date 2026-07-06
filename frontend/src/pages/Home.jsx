@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api, { BACKEND_URL } from '../utils/api';
-import { Search, MapPin, ArrowRight, Compass, Navigation, BookOpen, RefreshCw } from 'lucide-react';
+import { Search, MapPin, ArrowRight, Compass, Navigation, BookOpen, RefreshCw, Download } from 'lucide-react';
+import { usePWA } from '../context/PWAContext';
+import OfflineFallback from '../components/OfflineFallback';
 
 const Home = () => {
   const navigate = useNavigate();
+  const { isOffline, isInstallable, installApp } = usePWA();
   const [mosques, setMosques] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -179,6 +182,16 @@ const formatTime = (time) => {
             >
               Find Mosque Nearby
             </Link>
+            {isInstallable && (
+              <button
+                type="button"
+                onClick={installApp}
+                className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md active:scale-95 text-sm"
+              >
+                <Download className="h-4 w-4" />
+                Download App
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -401,6 +414,12 @@ const formatTime = (time) => {
               </div>
             ))}
           </div>
+        ) : isOffline && mosques.length === 0 ? (
+          /* Offline Fallback state */
+          <OfflineFallback 
+            title="Cannot load mosques"
+            message="You are currently offline, and there is no cached mosque list available. Please reconnect to the internet to browse mosques."
+          />
         ) : mosques.length === 0 ? (
           /* Empty Search State */
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-16 text-center max-w-lg mx-auto mt-8">

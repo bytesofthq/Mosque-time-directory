@@ -16,9 +16,12 @@ import {
   Info,
   ImageIcon
 } from 'lucide-react';
+import { usePWA } from '../context/PWAContext';
+import OfflineFallback from '../components/OfflineFallback';
 
 const MosqueDetail = () => {
   const { id } = useParams();
+  const { isOffline } = usePWA();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -61,6 +64,21 @@ const MosqueDetail = () => {
   }
 
   if (error || !data) {
+    if (isOffline) {
+      return (
+        <div className="max-w-xl mx-auto mt-16 p-8 text-center bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center">
+          <OfflineFallback 
+            title="Mosque details offline"
+            message="This mosque's details are not cached on your device. Please reconnect to the internet to load this page."
+          />
+          <Link to="/" className="inline-flex items-center space-x-2 text-slate-500 hover:text-teal-700 font-bold transition-all text-sm mt-4">
+            <ArrowLeft className="h-4 w-4" />
+            <span>Back to Home</span>
+          </Link>
+        </div>
+      );
+    }
+
     return (
       <div className="max-w-xl mx-auto mt-16 p-8 text-center bg-white rounded-2xl shadow-sm border border-slate-100">
         <h3 className="text-xl font-bold text-red-600 mb-2">Error Occurred</h3>
