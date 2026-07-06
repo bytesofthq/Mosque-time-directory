@@ -40,7 +40,7 @@ const Footer = () => {
               className="w-auto object-contain"
               style={{ height: '24px' }}
             />
-            <span className="text-slate-700 font-bold">Bytesoft</span>
+  
           </a>
         </div>
       </div>

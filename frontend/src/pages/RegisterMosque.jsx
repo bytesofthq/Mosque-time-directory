@@ -65,14 +65,53 @@ const RegisterMosque = () => {
 
     setGeoLoading(true);
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setFormData(prev => ({
-          ...prev,
-          latitude: position.coords.latitude.toFixed(6),
-          longitude: position.coords.longitude.toFixed(6)
-        }));
+      async (position) => {
+        const lat = position.coords.latitude.toFixed(6);
+        const lon = position.coords.longitude.toFixed(6);
+
+        let reverseGeocodeData = {};
+        try {
+          // Fetch address details from OpenStreetMap Nominatim API in English
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=en`);
+          const data = await response.json();
+          if (data && data.address) {
+            reverseGeocodeData = {
+              address: data.address.road || data.address.street || data.address.residential || data.address.path || data.address.suburb || '',
+              area: data.address.suburb || data.address.neighbourhood || data.address.village || data.address.hamlet || data.address.town || '',
+              city: data.address.city || data.address.state_district || data.address.county || data.address.town || '',
+              state: data.address.state || '',
+              pincode: data.address.postcode || '',
+            };
+          }
+        } catch (error) {
+          console.error("Error fetching reverse geocode data:", error);
+        }
+
+        setFormData(prev => {
+          const mosqueName = prev.mosqueName || 'Our Mosque';
+          const locality = reverseGeocodeData.area || reverseGeocodeData.city || 'our local community';
+          
+          let generatedAbout = prev.aboutMasjid;
+          if (!generatedAbout) {
+             generatedAbout = `Welcome to ${mosqueName}. Located in the heart of ${locality}, our mosque serves as a spiritual center for daily prayers, community gatherings, and Islamic education. We strive to foster a welcoming environment for all community members, providing a peaceful space for worship and reflection.`;
+          }
+
+          return {
+            ...prev,
+            latitude: lat,
+            longitude: lon,
+            address: prev.address || reverseGeocodeData.address,
+            area: prev.area || reverseGeocodeData.area,
+            city: prev.city || reverseGeocodeData.city,
+            state: prev.state || reverseGeocodeData.state,
+            pincode: prev.pincode || reverseGeocodeData.pincode,
+            googleMapLink: prev.googleMapLink || `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`,
+            aboutMasjid: generatedAbout
+          };
+        });
+
         setGeoLoading(false);
-        showAlert('Location detected successfully!', 'success');
+        showAlert('Fields filled successfully! You can also edit these fields if needed.', 'success');
       },
       (error) => {
         console.error('Error detecting location:', error);
@@ -224,10 +263,21 @@ const RegisterMosque = () => {
 
             {/* COLUMN 2: MOSQUE DETAILS */}
             <div className="space-y-6">
-              <h2 className="text-lg font-bold text-teal-800 border-b border-slate-100 pb-2 flex items-center gap-2">
-                <Building className="h-5 w-5 text-teal-600" />
-                <span>2. Mosque & Congregation</span>
-              </h2>
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <h2 className="text-lg font-bold text-teal-800 flex items-center gap-2">
+                  <Building className="h-5 w-5 text-teal-600" />
+                  <span>2. Mosque & Congregation</span>
+                </h2>
+                <button
+                  type="button"
+                  onClick={detectLocation}
+                  disabled={geoLoading}
+                  className="bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold px-4 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 active:scale-95 disabled:opacity-50"
+                >
+                  <MapPin className="h-4 w-4" />
+                  {geoLoading ? 'Detecting Location...' : 'Use Auto Location'}
+                </button>
+              </div>
 
               {/* Mosque Name */}
               <div>
@@ -346,14 +396,6 @@ const RegisterMosque = () => {
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Coordinates (Optional)</label>
-                  <button
-                    type="button"
-                    onClick={detectLocation}
-                    disabled={geoLoading}
-                    className="text-xs font-bold text-teal-600 hover:text-teal-700 transition-colors flex items-center gap-1 active:scale-95 disabled:opacity-50"
-                  >
-                    {geoLoading ? 'Detecting...' : 'Detect Coordinates'}
-                  </button>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <input
