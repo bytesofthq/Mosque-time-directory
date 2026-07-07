@@ -129,9 +129,6 @@ const Home = () => {
 
         const data = await res.json();
 
-        console.log(data.data.timings);
-        console.log(data.data.date);
-
         setPrayerTimings(data.data.timings);
         setDates(data.data.date);
 
