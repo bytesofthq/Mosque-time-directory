@@ -24,3 +24,4 @@ frontend/dist/
 frontend/build/
 backend/uploads/*
 !backend/uploads/.gitkeep
+!backend/uploads/default_mosque.png

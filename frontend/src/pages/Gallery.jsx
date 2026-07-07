@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api, { BACKEND_URL } from '../utils/api';
 import { ImageIcon, Upload, X, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react';
+import defaultMosque from '../assets/default_mosque.png';
 
 const Gallery = () => {
   const [currentImage, setCurrentImage] = useState('');
@@ -145,7 +146,7 @@ const Gallery = () => {
 
   const getImageUrl = (imagePath) => {
     if (!imagePath) {
-      return `${BACKEND_URL}/uploads/default_mosque.png`;
+      return defaultMosque;
     }
     if (imagePath.startsWith('http')) {
       return imagePath;
@@ -198,6 +199,7 @@ const Gallery = () => {
             <img
               src={getImageUrl(currentImage)}
               alt="Mosque Main Profile"
+              onError={(e) => { e.target.src = defaultMosque; }}
               className="w-full h-full object-cover"
             />
             {currentImage === '' && (

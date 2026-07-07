@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api, { BACKEND_URL } from '../utils/api';
 import { Building, Clock, Megaphone, Image as ImageIcon, MapPin, Phone, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import defaultMosque from '../assets/default_mosque.png';
 
 const MosqueDashboard = () => {
   const [data, setData] = useState(null);
@@ -24,7 +25,7 @@ const MosqueDashboard = () => {
 
   const getImageUrl = (imagePath) => {
     if (!imagePath) {
-      return `${BACKEND_URL}/uploads/default_mosque.png`;
+      return defaultMosque;
     }
     if (imagePath.startsWith('http')) {
       return imagePath;
@@ -61,6 +62,7 @@ const MosqueDashboard = () => {
           <img
             src={getImageUrl(mosque.mosqueImage)}
             alt={mosque.mosqueName}
+            onError={(e) => { e.target.src = defaultMosque; }}
             className="w-full h-full object-cover"
           />
         </div>

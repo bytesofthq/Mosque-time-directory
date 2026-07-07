@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { usePWA } from '../context/PWAContext';
 import OfflineFallback from '../components/OfflineFallback';
+import defaultMosque from '../assets/default_mosque.png';
 
 const MosqueDetail = () => {
   const { id } = useParams();
@@ -44,7 +45,7 @@ const MosqueDetail = () => {
 
   const getImageUrl = (imagePath) => {
     if (!imagePath) {
-      return `${BACKEND_URL}/uploads/default_mosque.png`;
+      return defaultMosque;
     }
     if (imagePath.startsWith('http')) {
       return imagePath;
@@ -110,6 +111,7 @@ const MosqueDetail = () => {
         <img
           src={getImageUrl(mosque.mosqueImage)}
           alt={mosque.mosqueName}
+          onError={(e) => { e.target.src = defaultMosque; }}
           className="w-full h-full object-cover opacity-60"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent"></div>

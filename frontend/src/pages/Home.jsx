@@ -4,6 +4,7 @@ import api, { BACKEND_URL } from '../utils/api';
 import { Search, MapPin, ArrowRight, Compass, Navigation, BookOpen, RefreshCw, Download } from 'lucide-react';
 import { usePWA } from '../context/PWAContext';
 import OfflineFallback from '../components/OfflineFallback';
+import defaultMosque from '../assets/default_mosque.png';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -93,7 +94,7 @@ const Home = () => {
   // Helper to determine the image URL
   const getImageUrl = (imagePath) => {
     if (!imagePath) {
-      return `${BACKEND_URL}/uploads/default_mosque.png`;
+      return defaultMosque;
     }
     if (imagePath.startsWith('http')) {
       return imagePath;
@@ -169,16 +170,16 @@ const formatTime = (time) => {
           <p className="text-teal-100 text-lg max-w-xl mx-auto font-medium mb-6">
             Search across local congregations for verified Jamaat times, community announcements, and directions.
           </p>
-          <div className="flex justify-center gap-4">
+          <div className="flex flex-col sm:flex-row justify-center items-stretch sm:items-center gap-3 sm:gap-4 max-w-xs sm:max-w-none mx-auto">
             <Link
               to="/register-mosque"
-              className="inline-flex items-center bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md active:scale-95 text-sm"
+              className="flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md active:scale-95 text-sm w-full sm:w-auto text-center"
             >
               Register your mosque
             </Link>
             <Link
               to="/nearby-mosques"
-              className="inline-flex items-center bg-teal-900/60 hover:bg-teal-900/80 text-white border border-teal-500/35 backdrop-blur-sm px-6 py-3 rounded-xl font-bold transition-all shadow-md active:scale-95 text-sm"
+              className="flex items-center justify-center bg-teal-900/60 hover:bg-teal-900/80 text-white border border-teal-500/35 backdrop-blur-sm px-6 py-3 rounded-xl font-bold transition-all shadow-md active:scale-95 text-sm w-full sm:w-auto text-center"
             >
               Find Mosque Nearby
             </Link>
@@ -186,7 +187,7 @@ const formatTime = (time) => {
               <button
                 type="button"
                 onClick={installApp}
-                className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md active:scale-95 text-sm"
+                className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md active:scale-95 text-sm w-full sm:w-auto text-center"
               >
                 <Download className="h-4 w-4" />
                 Download App
@@ -445,6 +446,7 @@ const formatTime = (time) => {
                     <img
                       src={getImageUrl(mosque.mosqueImage)}
                       alt={mosque.mosqueName}
+                      onError={(e) => { e.target.src = defaultMosque; }}
                       className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500"
                     />
                     <div className="absolute top-4 right-4 bg-teal-800/95 backdrop-blur-sm text-emerald-400 font-bold text-xs px-3 py-1.5 rounded-full shadow-md">

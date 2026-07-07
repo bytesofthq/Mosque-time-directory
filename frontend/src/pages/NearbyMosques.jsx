@@ -8,6 +8,7 @@ import {
   Navigation, 
   AlertCircle 
 } from 'lucide-react';
+import defaultMosque from '../assets/default_mosque.png';
 
 const NearbyMosques = () => {
   const [coordinates, setCoordinates] = useState(null);
@@ -19,7 +20,7 @@ const NearbyMosques = () => {
   // Helper to determine the image URL
   const getImageUrl = (imagePath) => {
     if (!imagePath) {
-      return `${BACKEND_URL}/uploads/default_mosque.png`;
+      return defaultMosque;
     }
     if (imagePath.startsWith('http')) {
       return imagePath;
@@ -193,6 +194,7 @@ const NearbyMosques = () => {
                   <img
                     src={getImageUrl(mosque.mosqueImage)}
                     alt={mosque.mosqueName}
+                    onError={(e) => { e.target.src = defaultMosque; }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500"
                   />
                   <div className="absolute top-4 right-4 bg-teal-800/95 backdrop-blur-sm text-emerald-400 font-bold text-xs px-3 py-1.5 rounded-full shadow-md">
