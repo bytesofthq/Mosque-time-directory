@@ -1,11 +1,32 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import sitemap from 'vite-plugin-sitemap'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
+    sitemap({
+      hostname: 'https://salahdirectory.in',
+      dynamicRoutes: [
+        '/register-mosque',
+        '/nearby-mosques',
+        '/login'
+      ],
+      changefreq: {
+        '/': 'daily',
+        '/register-mosque': 'weekly',
+        '/nearby-mosques': 'daily',
+        '/login': 'monthly'
+      },
+      priority: {
+        '/': 1.0,
+        '/register-mosque': 0.8,
+        '/nearby-mosques': 0.9,
+        '/login': 0.7
+      }
+    }),
     VitePWA({
       registerType: 'prompt', // use prompt so we can display a custom update toast
       injectRegister: 'auto',
