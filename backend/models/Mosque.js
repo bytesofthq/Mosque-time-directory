@@ -66,6 +66,11 @@ const MosqueSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  slug: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -73,6 +78,34 @@ const MosqueSchema = new mongoose.Schema({
   }
 }, {
   timestamps: true
+});
+
+const slugify = (text) => {
+  return text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')         // Replace spaces with -
+    .replace(/[^\w\-]+/g, '')       // Remove all non-word chars
+    .replace(/\-\-+/g, '-')         // Replace multiple - with single -
+    .replace(/^-+/, '')             // Trim - from start of text
+    .replace(/-+$/, '');            // Trim - from end of text
+};
+
+MosqueSchema.pre('save', async function(next) {
+  if (this.isModified('mosqueName') || !this.slug) {
+    let generatedSlug = slugify(this.mosqueName);
+    const Mosque = mongoose.model('Mosque');
+    let count = 0;
+    let existing = await Mosque.findOne({ slug: generatedSlug, _id: { $ne: this._id } });
+    while (existing) {
+      count++;
+      generatedSlug = `${slugify(this.mosqueName)}-${count}`;
+      existing = await Mosque.findOne({ slug: generatedSlug, _id: { $ne: this._id } });
+    }
+    this.slug = generatedSlug;
+  }
+  next();
 });
 
 module.exports = mongoose.model('Mosque', MosqueSchema);

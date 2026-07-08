@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import { Building, MapPin, Phone, User, CheckCircle2, AlertCircle } from 'lucide-react';
 
+
 const MyMosqueDetails = () => {
   const [loading, setLoading] = useState(true);
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -220,6 +221,7 @@ const MyMosqueDetails = () => {
         </h2>
         <p className="text-slate-500 text-xs font-semibold mt-1">Configure and display mosque information, facilities, and contact details.</p>
       </div>
+
 
       {/* Alert Block */}
       {alert.show && (

@@ -234,7 +234,7 @@ const NearbyMosques = () => {
                     </a>
                     
                     <Link
-                      to={`/mosques/${mosque._id}`}
+                      to={`/mosques/${mosque.slug || mosque._id}`}
                       className="inline-flex items-center space-x-1.5 bg-teal-50 hover:bg-teal-700 text-teal-700 hover:text-white px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200"
                     >
                       <span>View Details</span>

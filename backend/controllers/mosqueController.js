@@ -235,20 +235,27 @@ const getPublicMosques = async (req, res) => {
   }
 };
 
-// @desc    Get detailed mosque page by ID
+// @desc    Get detailed mosque page by ID or Slug
 // @route   GET /api/public/mosques/:id
 // @access  Public
 const getPublicMosqueDetails = async (req, res) => {
   try {
     const { id } = req.params;
-    const mosque = await Mosque.findById(id);
+    const mongoose = require('mongoose');
+    let mosque;
+
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      mosque = await Mosque.findById(id);
+    } else {
+      mosque = await Mosque.findOne({ slug: id });
+    }
 
     if (!mosque) {
       return res.status(404).json({ message: 'Mosque not found' });
     }
 
-    const timings = await PrayerTiming.findOne({ mosqueId: id });
-    const announcements = await Announcement.find({ mosqueId: id }).sort({ createdAt: -1 });
+    const timings = await PrayerTiming.findOne({ mosqueId: mosque._id });
+    const announcements = await Announcement.find({ mosqueId: mosque._id }).sort({ createdAt: -1 });
 
     return res.json({
       mosque,

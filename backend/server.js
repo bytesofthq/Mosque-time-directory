@@ -163,6 +163,24 @@ const startServer = async () => {
     console.error(`[Startup] Error during Hadith collection setup: ${error.message}`);
   }
 
+  // Seed mosque slugs if any are missing
+  const seedMosqueSlugs = async () => {
+    try {
+      const Mosque = require('./models/Mosque');
+      const mosques = await Mosque.find({ $or: [{ slug: { $exists: false } }, { slug: '' }, { slug: null }] });
+      if (mosques.length > 0) {
+        console.log(`[Startup] Found ${mosques.length} mosques without slugs. Generating slugs...`);
+        for (const mosque of mosques) {
+          await mosque.save();
+        }
+        console.log(`[Startup] Successfully generated slugs for all mosques.`);
+      }
+    } catch (error) {
+      console.error('[Startup] Error generating mosque slugs:', error);
+    }
+  };
+  await seedMosqueSlugs();
+
   // Seed the admin
   await seedRootAdmin();
 
