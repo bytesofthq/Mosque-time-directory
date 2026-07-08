@@ -111,6 +111,37 @@ const MyMosqueDetails = () => {
     }));
   };
 
+  const resolveLocationFromAddress = async () => {
+    if (!formData.address || !formData.city) return;
+
+    const queries = [
+      [formData.address, formData.area, formData.city, formData.state, formData.pincode].filter(Boolean).join(', '),
+      [formData.area, formData.city, formData.state, formData.pincode].filter(Boolean).join(', '),
+      [formData.city, formData.state, formData.pincode].filter(Boolean).join(', ')
+    ];
+
+    for (const q of queries) {
+      try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1&accept-language=en`);
+        const data = await response.json();
+        if (data && data.length > 0) {
+          const lat = parseFloat(data[0].lat).toFixed(6);
+          const lon = parseFloat(data[0].lon).toFixed(6);
+          
+          setFormData(prev => ({
+            ...prev,
+            latitude: lat,
+            longitude: lon,
+            googleMapLink: `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`
+          }));
+          break;
+        }
+      } catch (error) {
+        console.error(`Error resolving location for query "${q}":`, error);
+      }
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -231,6 +262,7 @@ const MyMosqueDetails = () => {
                   name="area"
                   value={formData.area}
                   onChange={handleInputChange}
+                  onBlur={resolveLocationFromAddress}
                   className="w-full px-3.5 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-semibold text-slate-700"
                 />
               </div>
@@ -242,6 +274,7 @@ const MyMosqueDetails = () => {
                 name="address"
                 value={formData.address}
                 onChange={handleInputChange}
+                onBlur={resolveLocationFromAddress}
                 rows="2"
                 className="w-full px-3.5 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-semibold text-slate-700"
               ></textarea>
@@ -255,6 +288,7 @@ const MyMosqueDetails = () => {
                   name="city"
                   value={formData.city}
                   onChange={handleInputChange}
+                  onBlur={resolveLocationFromAddress}
                   className="w-full px-3.5 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-semibold text-slate-700"
                 />
               </div>
@@ -266,6 +300,7 @@ const MyMosqueDetails = () => {
                   name="state"
                   value={formData.state}
                   onChange={handleInputChange}
+                  onBlur={resolveLocationFromAddress}
                   className="w-full px-3.5 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-semibold text-slate-700"
                 />
               </div>
@@ -277,6 +312,7 @@ const MyMosqueDetails = () => {
                   name="pincode"
                   value={formData.pincode}
                   onChange={handleInputChange}
+                  onBlur={resolveLocationFromAddress}
                   className="w-full px-3.5 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-semibold text-slate-700"
                 />
               </div>
