@@ -11,6 +11,7 @@ const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const mosqueRoutes = require('./routes/mosqueRoutes');
 const announcementRoutes = require('./routes/announcementRoutes');
+const sitemapRoutes = require('./routes/sitemapRoutes');
 
 const app = express();
 
@@ -42,6 +43,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api', mosqueRoutes); // handles public searches and /api/mosque/my-mosque
 app.use('/api/announcements', announcementRoutes); // handles mosque & admin announcements
+app.use('/', sitemapRoutes); // Serves /sitemap.xml
 
 // Default route for server health check
 app.get('/', (req, res) => {
