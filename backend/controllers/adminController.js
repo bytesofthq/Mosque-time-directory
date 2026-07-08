@@ -74,7 +74,7 @@ const createMosque = async (req, res) => {
       Asr: { azan: '04:30', jamaat: '05:00' },
       Maghrib: { azan: '06:45', jamaat: '06:50' },
       Isha: { azan: '08:15', jamaat: '08:30' },
-      Jumma: { khutbah: '01:00', jamaat: '01:30' }
+      Jumma: { azan: '01:00', khutbah: '01:30' }
     });
 
     await defaultTimings.save();

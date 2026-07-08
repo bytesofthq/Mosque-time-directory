@@ -240,18 +240,18 @@ const MosqueDetail = () => {
                   ))}
                   <tr className="bg-emerald-50/30 hover:bg-emerald-50/60 transition-colors font-semibold">
                     <td className="px-6 py-4 whitespace-nowrap font-bold text-emerald-800">
-                      Jumma Khutbah
+                      Jumma Azaan
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap font-semibold text-teal-700" colSpan={2}>
-                      {timings.Jumma?.khutbah || '--:--'}
+                      {timings.Jumma?.azan || '--:--'}
                     </td>
                   </tr>
                   <tr className="bg-emerald-50/60 hover:bg-emerald-50/80 transition-colors font-bold">
                     <td className="px-6 py-4 whitespace-nowrap font-bold text-emerald-900">
-                      Jumma Jamaat
+                      Jumma Khutbah
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-teal-800" colSpan={2}>
-                      {timings.Jumma?.jamaat || '--:--'}
+                      {timings.Jumma?.khutbah || '--:--'}
                     </td>
                   </tr>
                 </tbody>

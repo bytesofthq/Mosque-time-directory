@@ -19,7 +19,8 @@ const app = express();
 // ==========================================
 const allowedOrigins = [
   'http://localhost:5173',
-  'http://localhost:3000'
+  'http://localhost:3000',
+  'http://localhost:5174'
 ];
 if (process.env.FRONTEND_URL) {
   allowedOrigins.push(process.env.FRONTEND_URL);
@@ -132,7 +133,7 @@ const startServer = async () => {
         const content = fs.readFileSync(hadithJsonPath, 'utf8');
         const volumes = JSON.parse(content);
         let flattened = [];
-        
+
         volumes.forEach(volume => {
           if (volume.books) {
             volume.books.forEach(book => {
@@ -161,7 +162,7 @@ const startServer = async () => {
   } catch (error) {
     console.error(`[Startup] Error during Hadith collection setup: ${error.message}`);
   }
-  
+
   // Seed the admin
   await seedRootAdmin();
 

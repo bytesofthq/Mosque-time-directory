@@ -176,7 +176,7 @@ const MosqueDashboard = () => {
               { label: 'Asr', val: timings?.Asr?.jamaat },
               { label: 'Maghrib', val: timings?.Maghrib?.jamaat },
               { label: 'Isha', val: timings?.Isha?.jamaat },
-              { label: 'Jumma', val: timings?.Jumma?.jamaat }
+              { label: 'Jumma', val: timings?.Jumma?.khutbah }
             ].map((p) => (
               <div key={p.label} className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center">
                 <span className="font-bold text-slate-500 text-xs uppercase">{p.label}</span>

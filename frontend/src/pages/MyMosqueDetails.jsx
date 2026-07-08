@@ -114,13 +114,53 @@ const MyMosqueDetails = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.mosqueName.trim() || !formData.address.trim() || !formData.area.trim() || !formData.city.trim() || !formData.pincode.trim() || !formData.googleMapLink.trim()) {
+    if (!formData.mosqueName.trim() || !formData.address.trim() || !formData.area.trim() || !formData.city.trim() || !formData.pincode.trim()) {
       return showAlert('Please fill in all mandatory fields (*).');
     }
 
     setSubmitLoading(true);
+
+    // Geocoding based on address details
+    let resolvedLat = null;
+    let resolvedLon = null;
+    const queries = [
+      [formData.address, formData.area, formData.city, formData.state, formData.pincode].filter(Boolean).join(', '),
+      [formData.area, formData.city, formData.state, formData.pincode].filter(Boolean).join(', '),
+      [formData.city, formData.state, formData.pincode].filter(Boolean).join(', '),
+      [formData.city, formData.state].filter(Boolean).join(', ')
+    ];
+
+    for (const q of queries) {
+      try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1&accept-language=en`);
+        const data = await response.json();
+        if (data && data.length > 0) {
+          resolvedLat = parseFloat(data[0].lat).toFixed(6);
+          resolvedLon = parseFloat(data[0].lon).toFixed(6);
+          break;
+        }
+      } catch (error) {
+        console.error(`Geocoding error for query "${q}":`, error);
+      }
+    }
+
+    const mapLink = (formData.googleMapLink && formData.googleMapLink.trim()) || 
+      (resolvedLat && resolvedLon ? `https://www.google.com/maps/search/?api=1&query=${resolvedLat},${resolvedLon}` : '');
+
+    if (!mapLink) {
+      setSubmitLoading(false);
+      return showAlert('Could not automatically resolve mosque coordinates or location. Please provide a Google Maps Link.');
+    }
+
+    const submissionData = {
+      ...formData,
+      latitude: resolvedLat ? parseFloat(resolvedLat) : null,
+      longitude: resolvedLon ? parseFloat(resolvedLon) : null,
+      googleMapLink: mapLink
+    };
+
     try {
-      await api.put('/mosque/my-mosque', formData);
+      await api.put('/mosque/my-mosque', submissionData);
       showAlert('Mosque details updated successfully!', 'success');
       fetchMosqueDetails();
     } catch (error) {
@@ -242,37 +282,12 @@ const MyMosqueDetails = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Google Maps Link *</label>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Google Maps Link (Optional)</label>
                 <input
                   type="text"
                   name="googleMapLink"
+                  placeholder="Leave blank to auto-generate from address"
                   value={formData.googleMapLink}
-                  onChange={handleInputChange}
-                  className="w-full px-3.5 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-semibold text-slate-700"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Latitude (Optional)</label>
-                <input
-                  type="number"
-                  step="any"
-                  name="latitude"
-                  value={formData.latitude}
-                  onChange={handleInputChange}
-                  className="w-full px-3.5 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-semibold text-slate-700"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Longitude (Optional)</label>
-                <input
-                  type="number"
-                  step="any"
-                  name="longitude"
-                  value={formData.longitude}
                   onChange={handleInputChange}
                   className="w-full px-3.5 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-semibold text-slate-700"
                 />
