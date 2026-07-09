@@ -30,7 +30,6 @@ const AdminUsers = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    mobile: '',
     password: '',
     mosqueId: ''
   });
@@ -80,7 +79,6 @@ const AdminUsers = () => {
     setFormData({
       name: '',
       email: '',
-      mobile: '',
       password: '',
       mosqueId: ''
     });
@@ -98,7 +96,6 @@ const AdminUsers = () => {
     const errors = {};
     if (!formData.name.trim()) errors.name = 'Full name is required';
     if (!formData.email.trim()) errors.email = 'Email address is required';
-    if (!formData.mobile.trim()) errors.mobile = 'Mobile number is required';
     if (!formData.password.trim()) errors.password = 'Initial password is required';
     if (formData.password.length < 6) errors.password = 'Password must be at least 6 characters';
     if (!formData.mosqueId) errors.mosqueId = 'Please assign a mosque';
@@ -205,7 +202,7 @@ const AdminUsers = () => {
         <Search className="h-5 w-5 text-slate-400 mr-2" />
         <input
           type="text"
-          placeholder="Search admin name, email, or mobile..."
+          placeholder="Search admin name or email..."
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
@@ -233,7 +230,7 @@ const AdminUsers = () => {
               <thead className="bg-slate-50 text-slate-400 text-left text-xs font-bold uppercase tracking-wider">
                 <tr>
                   <th scope="col" className="px-6 py-4">Admin Name</th>
-                  <th scope="col" className="px-6 py-4">Email / Mobile</th>
+                  <th scope="col" className="px-6 py-4">Email</th>
                   <th scope="col" className="px-6 py-4">Assigned Mosque</th>
                   <th scope="col" className="px-6 py-4">Account Status</th>
                   <th scope="col" className="px-6 py-4 text-center">Actions</th>
@@ -247,7 +244,7 @@ const AdminUsers = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div>{admin.email}</div>
-                      <div className="text-xs text-slate-400 font-bold">{admin.mobile}</div>
+                      {admin.mobile && <div className="text-xs text-slate-400 font-bold">{admin.mobile}</div>}
                     </td>
                     <td className="px-6 py-4">
                       {admin.mosqueId ? (
@@ -356,17 +353,7 @@ const AdminUsers = () => {
                 {formErrors.email && <p className="text-red-500 text-xs font-semibold mt-1">{formErrors.email}</p>}
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Mobile Number *</label>
-                <input
-                  type="text"
-                  name="mobile"
-                  value={formData.mobile}
-                  onChange={handleFormChange}
-                  className="w-full px-3.5 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-medium text-slate-700"
-                />
-                {formErrors.mobile && <p className="text-red-500 text-xs font-semibold mt-1">{formErrors.mobile}</p>}
-              </div>
+
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1">Initial Password *</label>

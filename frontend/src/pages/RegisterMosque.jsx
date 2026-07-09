@@ -6,7 +6,6 @@ import {
   User, 
   Mail, 
   Lock, 
-  Phone, 
   Building, 
   MapPin, 
   Navigation, 
@@ -23,7 +22,6 @@ const RegisterMosque = () => {
     // Admin Fields
     name: '',
     email: '',
-    mobile: '',
     password: '',
     // Mosque Fields
     mosqueName: '',
@@ -182,7 +180,7 @@ const RegisterMosque = () => {
     e.preventDefault();
 
     // Validations
-    if (!formData.name || !formData.email || !formData.mobile || !formData.password) {
+    if (!formData.name || !formData.email || !formData.password) {
       return showAlert('Please fill out all Administrator details.');
     }
     if (!formData.mosqueName || !formData.address || !formData.area || !formData.city || !formData.state || !formData.pincode) {
@@ -320,24 +318,7 @@ const RegisterMosque = () => {
                 </div>
               </div>
 
-              {/* Mobile Number */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Mobile Number</label>
-                <div className="relative rounded-xl shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                    <Phone className="h-4.5 w-4.5 text-slate-400" />
-                  </div>
-                  <input
-                    type="text"
-                    name="mobile"
-                    required
-                    placeholder="e.g. 9876543210"
-                    value={formData.mobile}
-                    onChange={handleInputChange}
-                    className="block w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:border-transparent text-slate-800 placeholder-slate-400 transition-all font-medium text-sm"
-                  />
-                </div>
-              </div>
+
 
               {/* Password */}
               <div>

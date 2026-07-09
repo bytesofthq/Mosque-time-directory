@@ -250,7 +250,7 @@ const getMosqueAdmins = async (req, res) => {
 const createAndAssignAdmin = async (req, res) => {
   const { name, email, mobile, password, mosqueId } = req.body;
 
-  if (!name || !email || !mobile || !password || !mosqueId) {
+  if (!name || !email || !password || !mosqueId) {
     return res.status(400).json({ message: 'All admin fields and mosque assignment are required' });
   }
 
@@ -277,7 +277,7 @@ const createAndAssignAdmin = async (req, res) => {
     const admin = new User({
       name,
       email: email.toLowerCase(),
-      mobile,
+      mobile: mobile || '',
       password, // Pre-save hook hashes this
       role: 'MOSQUE_ADMIN',
       mosqueId,

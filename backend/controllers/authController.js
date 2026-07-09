@@ -158,7 +158,7 @@ const registerAdminWithMosque = async (req, res) => {
     aboutMasjid
   } = req.body;
 
-  if (!name || !email || !mobile || !password) {
+  if (!name || !email || !password) {
     return res.status(400).json({ message: 'All admin registration fields are required' });
   }
 
@@ -209,7 +209,7 @@ const registerAdminWithMosque = async (req, res) => {
       _id: adminId,
       name,
       email: email.toLowerCase(),
-      mobile,
+      mobile: mobile || '',
       password,
       role: 'MOSQUE_ADMIN',
       mosqueId: savedMosque._id,
