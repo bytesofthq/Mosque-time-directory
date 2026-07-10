@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
   getMyMosque,
+  createMyMosque,
   updateMyMosque,
   uploadMosqueImage,
   getMyMosqueTimings,
@@ -29,6 +30,7 @@ router.get('/public/hadith-of-the-day', getHadithOfTheDay);
 // ==========================================
 router.route('/mosque/my-mosque')
   .get(authenticateUser, authorizeMosqueAdmin, getMyMosque)
+  .post(authenticateUser, authorizeMosqueAdmin, createMyMosque)
   .put(authenticateUser, authorizeMosqueAdmin, updateMyMosque);
 
 router.post(

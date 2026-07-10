@@ -42,6 +42,16 @@ const MosqueDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const getDaysAgoText = (lastUpdatedDate) => {
+    if (!lastUpdatedDate) return '';
+    const diffTime = Math.abs(new Date() - new Date(lastUpdatedDate));
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return 'Changed today';
+    if (diffDays === 1) return 'Changed 1 day ago';
+    if (diffDays >= 15) return `Not changed since ${diffDays} days`;
+    return `Changed ${diffDays} days ago`;
+  };
+
   useEffect(() => {
     window.scrollTo(0, 0);
     const fetchMosqueDetails = async () => {
@@ -261,7 +271,12 @@ const MosqueDetail = () => {
                   ].map((prayer) => (
                     <tr key={prayer.key} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap font-bold text-slate-800">
-                        {prayer.name}
+                        <div>{prayer.name}</div>
+                        {['Fajr', 'Asr', 'Maghrib', 'Isha'].includes(prayer.key) && timings[`lastUpdated${prayer.key}`] && (
+                          <span className="block text-[11px] font-normal text-slate-400 mt-0.5">
+                            {getDaysAgoText(timings[`lastUpdated${prayer.key}`])}
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap font-semibold text-teal-700">
                         {timings[prayer.key]?.azan || '--:--'}

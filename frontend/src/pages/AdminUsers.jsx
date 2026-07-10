@@ -9,7 +9,10 @@ import {
   Unlock, 
   Building,
   X,
-  Compass
+  Compass,
+  Edit2,
+  Trash2,
+  Phone
 } from 'lucide-react';
 
 const AdminUsers = () => {
@@ -22,6 +25,7 @@ const AdminUsers = () => {
 
   // Modals state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [isResetOpen, setIsResetOpen] = useState(false);
 
   const [selectedAdmin, setSelectedAdmin] = useState(null);
@@ -30,6 +34,7 @@ const AdminUsers = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    mobile: '',
     password: '',
     mosqueId: ''
   });
@@ -70,20 +75,34 @@ const AdminUsers = () => {
   }, [page, search]);
 
   useEffect(() => {
-    if (isCreateOpen) {
+    if (isCreateOpen || isEditOpen) {
       fetchAllMosques();
     }
-  }, [isCreateOpen]);
+  }, [isCreateOpen, isEditOpen]);
 
   const handleOpenCreate = () => {
     setFormData({
       name: '',
       email: '',
+      mobile: '',
       password: '',
       mosqueId: ''
     });
     setFormErrors({});
     setIsCreateOpen(true);
+  };
+
+  const handleOpenEdit = (admin) => {
+    setSelectedAdmin(admin);
+    setFormData({
+      name: admin.name || '',
+      email: admin.email || '',
+      mobile: admin.mobile || '',
+      mosqueId: admin.mosqueId?._id || admin.mosqueId || '',
+      password: '' // not used for edits
+    });
+    setFormErrors({});
+    setIsEditOpen(true);
   };
 
   const handleOpenReset = (admin) => {
@@ -98,7 +117,13 @@ const AdminUsers = () => {
     if (!formData.email.trim()) errors.email = 'Email address is required';
     if (!formData.password.trim()) errors.password = 'Initial password is required';
     if (formData.password.length < 6) errors.password = 'Password must be at least 6 characters';
-    if (!formData.mosqueId) errors.mosqueId = 'Please assign a mosque';
+    return errors;
+  };
+
+  const validateEditForm = () => {
+    const errors = {};
+    if (!formData.name.trim()) errors.name = 'Full name is required';
+    if (!formData.email.trim()) errors.email = 'Email address is required';
     return errors;
   };
 
@@ -128,6 +153,46 @@ const AdminUsers = () => {
       alert(error.response?.data?.message || 'Failed to create and assign admin');
     } finally {
       setSubmitLoading(false);
+    }
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    const errors = validateEditForm();
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
+    setSubmitLoading(true);
+    try {
+      await api.put(`/admin/admins/${selectedAdmin._id}`, {
+        name: formData.name,
+        email: formData.email,
+        mobile: formData.mobile,
+        mosqueId: formData.mosqueId
+      });
+      setIsEditOpen(false);
+      fetchAdmins();
+    } catch (error) {
+      console.error('Error updating admin:', error);
+      alert(error.response?.data?.message || 'Failed to update user details');
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (adminId) => {
+    if (!window.confirm('Are you sure you want to permanently delete this user account? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await api.delete(`/admin/admins/${adminId}`);
+      fetchAdmins();
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      alert(error.response?.data?.message || 'Failed to delete user');
     }
   };
 
@@ -172,56 +237,63 @@ const AdminUsers = () => {
     }
   };
 
-  // Filter out mosques that already have an admin assigned (unless it was already assigned to this user, but since this is create mode, all newly created users need a fresh mosque).
-  // In `mosques`, we hold a list of all mosques. Each mosque has `admin` object (which is user or null).
+  // Filter out mosques that already have an admin assigned
   const availableMosques = mosques.filter(m => !m.admin);
+  
+  // Filter for edit mode (includes current user's mosque)
+  const getAvailableMosquesForEdit = (userMosqueId) => {
+    return mosques.filter(m => !m.admin || (userMosqueId && m._id === userMosqueId));
+  };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
             <Users className="h-5 w-5 text-teal-600" />
             <span>Manage Mosque Admins</span>
           </h2>
-          <p className="text-slate-500 text-xs font-semibold mt-1">Create accounts for Mosque Admins and toggle activation statuses.</p>
+          <p className="text-slate-500 text-xs font-semibold mt-1">
+            Create, update, toggle access, and reset passwords for Mosque Admin users.
+          </p>
         </div>
-
+        
         <button
           onClick={handleOpenCreate}
-          className="bg-teal-700 hover:bg-teal-800 text-white font-extrabold text-sm px-5 py-2.5 rounded-xl shadow-md shadow-teal-700/10 flex items-center justify-center gap-2 transition-all active:scale-95 self-start sm:self-auto"
+          className="self-start sm:self-auto bg-teal-700 hover:bg-teal-800 text-white font-extrabold text-sm px-4 py-2.5 rounded-xl shadow-md transition-all active:scale-95 flex items-center gap-2"
         >
           <UserPlus className="h-4.5 w-4.5" />
-          <span>Create Admin</span>
+          <span>Add Admin User</span>
         </button>
       </div>
 
-      {/* Filter and Search Panel */}
-      <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center max-w-md">
-        <Search className="h-5 w-5 text-slate-400 mr-2" />
-        <input
-          type="text"
-          placeholder="Search admin name or email..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-          className="w-full bg-transparent focus:outline-none text-slate-700 text-sm font-medium"
-        />
+      {/* Search and Filters */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
+        <div className="relative w-full md:max-w-md">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-4 w-4 text-slate-400" />
+          </div>
+          <input
+            type="text"
+            placeholder="Search by name, email, or mobile..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            className="block w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-semibold text-slate-700 placeholder-slate-400 bg-slate-50/50"
+          />
+        </div>
       </div>
 
-      {/* Tabular index of Mosque Admins */}
-      {loading ? (
-        <div className="flex justify-center py-12">
+      {/* Users Table */}
+      {loading && admins.length === 0 ? (
+        <div className="flex h-64 items-center justify-center bg-white rounded-2xl border border-slate-100 shadow-sm">
           <div className="h-8 w-8 animate-spin rounded-full border-3 border-teal-600 border-t-transparent"></div>
         </div>
       ) : admins.length === 0 ? (
-        <div className="bg-white p-12 text-center rounded-2xl border border-slate-100 shadow-sm max-w-md mx-auto">
+        <div className="text-center py-12 bg-white rounded-2xl border border-slate-100 shadow-sm">
           <Users className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-          <h3 className="text-base font-bold text-slate-700 mb-1">No Admins Found</h3>
-          <p className="text-xs text-slate-400 font-medium">Create a new mosque admin using the button above.</p>
+          <h3 className="font-bold text-slate-700">No admins found</h3>
+          <p className="text-slate-500 text-xs mt-1">Try resetting search query or add a new admin user.</p>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
@@ -229,8 +301,8 @@ const AdminUsers = () => {
             <table className="min-w-full divide-y divide-slate-100">
               <thead className="bg-slate-50 text-slate-400 text-left text-xs font-bold uppercase tracking-wider">
                 <tr>
-                  <th scope="col" className="px-6 py-4">Admin Name</th>
-                  <th scope="col" className="px-6 py-4">Email</th>
+                  <th scope="col" className="px-6 py-4">Full Name</th>
+                  <th scope="col" className="px-6 py-4">Contact Info</th>
                   <th scope="col" className="px-6 py-4">Assigned Mosque</th>
                   <th scope="col" className="px-6 py-4">Account Status</th>
                   <th scope="col" className="px-6 py-4 text-center">Actions</th>
@@ -264,7 +336,7 @@ const AdminUsers = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center text-xs font-bold">
-                      <div className="flex items-center justify-center space-x-2.5">
+                      <div className="flex items-center justify-center space-x-2">
                         <button
                           onClick={() => handleToggleStatus(admin._id, admin.isActive)}
                           className={`p-2 rounded-lg transition-all ${
@@ -274,15 +346,31 @@ const AdminUsers = () => {
                           }`}
                           title={admin.isActive ? 'Deactivate User' : 'Activate User'}
                         >
-                          {admin.isActive ? <Unlock className="h-4.5 w-4.5" /> : <Lock className="h-4.5 w-4.5" />}
+                          {admin.isActive ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
                         </button>
                         
                         <button
-                          onClick={() => handleOpenReset(admin)}
+                          onClick={() => handleOpenEdit(admin)}
                           className="p-2 text-teal-600 hover:bg-teal-50 hover:text-teal-800 rounded-lg transition-all"
+                          title="Edit User Details"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+
+                        <button
+                          onClick={() => handleOpenReset(admin)}
+                          className="p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition-all"
                           title="Reset Password"
                         >
-                          <Key className="h-4.5 w-4.5" />
+                          <Key className="h-4 w-4" />
+                        </button>
+
+                        <button
+                          onClick={() => handleDeleteUser(admin._id)}
+                          className="p-2 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-all"
+                          title="Delete User"
+                        >
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </td>
@@ -334,6 +422,7 @@ const AdminUsers = () => {
                 <input
                   type="text"
                   name="name"
+                  required
                   value={formData.name}
                   onChange={handleFormChange}
                   className="w-full px-3.5 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-medium text-slate-700"
@@ -346,6 +435,7 @@ const AdminUsers = () => {
                 <input
                   type="email"
                   name="email"
+                  required
                   value={formData.email}
                   onChange={handleFormChange}
                   className="w-full px-3.5 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-medium text-slate-700"
@@ -353,13 +443,24 @@ const AdminUsers = () => {
                 {formErrors.email && <p className="text-red-500 text-xs font-semibold mt-1">{formErrors.email}</p>}
               </div>
 
-
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Mobile Contact</label>
+                <input
+                  type="text"
+                  name="mobile"
+                  value={formData.mobile}
+                  onChange={handleFormChange}
+                  placeholder="e.g. +91 9999999999"
+                  className="w-full px-3.5 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-medium text-slate-700"
+                />
+              </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1">Initial Password *</label>
                 <input
                   type="password"
                   name="password"
+                  required
                   value={formData.password}
                   onChange={handleFormChange}
                   placeholder="At least 6 characters"
@@ -369,27 +470,20 @@ const AdminUsers = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Assign Mosque *</label>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Assign Mosque (Optional)</label>
                 <select
                   name="mosqueId"
                   value={formData.mosqueId}
                   onChange={handleFormChange}
                   className="w-full px-3.5 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-medium text-slate-700 bg-white"
                 >
-                  <option value="">-- Choose Unassigned Mosque --</option>
+                  <option value="">-- None / Unassigned --</option>
                   {availableMosques.map((m) => (
                     <option key={m._id} value={m._id}>
                       {m.mosqueName} ({m.city})
                     </option>
                   ))}
                 </select>
-                {formErrors.mosqueId && <p className="text-red-500 text-xs font-semibold mt-1">{formErrors.mosqueId}</p>}
-                
-                {availableMosques.length === 0 && (
-                  <p className="text-amber-600 text-xs font-semibold mt-1.5 leading-relaxed">
-                    Note: There are no unassigned mosques available. Please create a mosque first before registers an admin.
-                  </p>
-                )}
               </div>
 
               <div className="pt-4 border-t border-slate-100 flex justify-end space-x-3 bg-white">
@@ -402,13 +496,105 @@ const AdminUsers = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={submitLoading || availableMosques.length === 0}
+                  disabled={submitLoading}
                   className="px-5 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-extrabold text-sm shadow-md disabled:opacity-50"
                 >
                   {submitLoading ? (
                     <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
                   ) : (
-                    'Register Admin'
+                    'Create User'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT MOSQUE ADMIN MODAL */}
+      {isEditOpen && selectedAdmin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 bg-teal-800 text-white flex justify-between items-center">
+              <h3 className="font-bold text-lg">Edit Mosque Admin Details</h3>
+              <button onClick={() => setIsEditOpen(false)} className="text-teal-200 hover:text-white transition-colors">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleEditSubmit} className="p-6 overflow-y-auto space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Full Name *</label>
+                <input
+                  type="text"
+                  name="name"
+                  required
+                  value={formData.name}
+                  onChange={handleFormChange}
+                  className="w-full px-3.5 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-medium text-slate-700"
+                />
+                {formErrors.name && <p className="text-red-500 text-xs font-semibold mt-1">{formErrors.name}</p>}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Email Address *</label>
+                <input
+                  type="email"
+                  name="email"
+                  required
+                  value={formData.email}
+                  onChange={handleFormChange}
+                  className="w-full px-3.5 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-medium text-slate-700"
+                />
+                {formErrors.email && <p className="text-red-500 text-xs font-semibold mt-1">{formErrors.email}</p>}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Mobile Contact</label>
+                <input
+                  type="text"
+                  name="mobile"
+                  value={formData.mobile}
+                  onChange={handleFormChange}
+                  placeholder="e.g. +91 9999999999"
+                  className="w-full px-3.5 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-medium text-slate-700"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Assign Mosque (Optional)</label>
+                <select
+                  name="mosqueId"
+                  value={formData.mosqueId}
+                  onChange={handleFormChange}
+                  className="w-full px-3.5 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-medium text-slate-700 bg-white"
+                >
+                  <option value="">-- None / Unassigned --</option>
+                  {getAvailableMosquesForEdit(selectedAdmin.mosqueId?._id || selectedAdmin.mosqueId).map((m) => (
+                    <option key={m._id} value={m._id}>
+                      {m.mosqueName} ({m.city})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 flex justify-end space-x-3 bg-white">
+                <button
+                  type="button"
+                  onClick={() => setIsEditOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitLoading}
+                  className="px-5 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-extrabold text-sm shadow-md disabled:opacity-50"
+                >
+                  {submitLoading ? (
+                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                  ) : (
+                    'Save Details'
                   )}
                 </button>
               </div>

@@ -266,11 +266,62 @@ const verifyEmail = async (req, res) => {
   }
 };
 
+// @desc    Register a new user (Imam/Muazzin) without a mosque
+// @route   POST /api/auth/register-user
+// @access  Public
+const registerUser = async (req, res) => {
+  const { name, email, mobile, password } = req.body;
+
+  if (!name || !email || !password) {
+    return res.status(400).json({ message: 'Name, email, and password are required' });
+  }
+
+  try {
+    const emailExists = await User.findOne({ email: email.toLowerCase() });
+    if (emailExists) {
+      return res.status(400).json({ message: 'An account with this email already exists' });
+    }
+
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationTokenExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+
+    const user = new User({
+      name,
+      email: email.toLowerCase(),
+      mobile: mobile || '',
+      password,
+      role: 'MOSQUE_ADMIN',
+      mosqueId: null,
+      isActive: true,
+      isEmailVerified: false,
+      emailVerificationToken: verificationToken,
+      emailVerificationExpires: verificationTokenExpires
+    });
+
+    const savedUser = await user.save();
+
+    // Send verification email via Brevo
+    try {
+      await sendVerificationEmail(savedUser.email, savedUser.name, verificationToken);
+    } catch (emailError) {
+      console.error('Error sending verification email:', emailError);
+    }
+
+    return res.status(201).json({
+      message: 'Registration successful! Please check your email to verify your account before logging in.'
+    });
+  } catch (error) {
+    console.error('User registration error:', error);
+    return res.status(500).json({ message: 'Server error registering user' });
+  }
+};
+
 module.exports = {
   loginUser,
   getUserProfile,
   updateUserProfile,
   changePassword,
   registerAdminWithMosque,
-  verifyEmail
+  verifyEmail,
+  registerUser
 };

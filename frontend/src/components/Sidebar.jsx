@@ -35,20 +35,33 @@ const Sidebar = ({ isOpen, onClose }) => {
         { path: '/admin/announcements', name: 'Announcements', icon: <Megaphone className="h-5 w-5" /> },
         { path: '/admin/profile', name: 'Profile', icon: <User className="h-5 w-5" /> },
       ];
-    } else if (user?.role === 'MOSQUE_ADMIN') {
-      return [
-        { path: '/mosque-admin', name: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" /> },
-        { path: '/mosque-admin/my-mosque', name: 'My Mosque', icon: <Building className="h-5 w-5" /> },
-        { path: '/mosque-admin/timings', name: 'Prayer Timings', icon: <Clock className="h-5 w-5" /> },
-        { path: '/mosque-admin/announcements', name: 'Announcements', icon: <Megaphone className="h-5 w-5" /> },
-        { path: '/mosque-admin/gallery', name: 'Gallery', icon: <ImageIcon className="h-5 w-5" /> },
-        { path: '/mosque-admin/profile', name: 'Profile', icon: <User className="h-5 w-5" /> },
+    } else if (user && user.role === 'MOSQUE_ADMIN') {
+      const baseLinks = [
+        { path: '/mosque-admin', name: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" /> }
       ];
+
+      // Only show details, timings, announcements, and gallery if they have a mosque
+      if (user.mosqueId) {
+        baseLinks.push(
+          { path: '/mosque-admin/my-mosque', name: 'My Mosque', icon: <Building className="h-5 w-5" /> },
+          { path: '/mosque-admin/timings', name: 'Prayer Timings', icon: <Clock className="h-5 w-5" /> },
+          { path: '/mosque-admin/announcements', name: 'Announcements', icon: <Megaphone className="h-5 w-5" /> },
+          { path: '/mosque-admin/gallery', name: 'Gallery', icon: <ImageIcon className="h-5 w-5" /> }
+        );
+      }
+
+      baseLinks.push({ path: '/mosque-admin/profile', name: 'Profile', icon: <User className="h-5 w-5" /> });
+      return baseLinks;
     }
     return [];
   };
 
   const links = getLinks();
+
+  const getRoleLabel = () => {
+    if (user?.role === 'ROOT_ADMIN') return 'Root Admin';
+    return 'Mosque Admin';
+  };
 
   return (
     <>
@@ -87,7 +100,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         {/* Admin Quick Info */}
         <div className="p-5 border-b border-teal-800 bg-teal-950/40">
           <p className="text-xs text-teal-400 uppercase tracking-widest font-extrabold mb-1">
-            {user?.role === 'ROOT_ADMIN' ? 'Root Admin' : 'Mosque Admin'}
+            {getRoleLabel()}
           </p>
           <p className="font-semibold text-white truncate text-sm">{user?.name}</p>
           <p className="text-xs text-slate-400 truncate mt-0.5">{user?.email}</p>

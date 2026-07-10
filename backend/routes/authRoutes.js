@@ -6,13 +6,15 @@ const {
   updateUserProfile,
   changePassword,
   registerAdminWithMosque,
-  verifyEmail
+  verifyEmail,
+  registerUser
 } = require('../controllers/authController');
 const { authenticateUser } = require('../middlewares/authMiddleware');
 
 // Public routes
 router.post('/login', loginUser);
 router.post('/register-mosque', registerAdminWithMosque);
+router.post('/register-user', registerUser);
 router.get('/verify-email', verifyEmail);
 
 // Protected routes (any logged-in user can access)
