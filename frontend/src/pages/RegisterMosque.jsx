@@ -9,7 +9,8 @@ import {
   Lock, 
   Phone,
   AlertCircle, 
-  CheckCircle2
+  CheckCircle2,
+  X
 } from 'lucide-react';
 
 const RegisterMosque = () => {
@@ -24,6 +25,8 @@ const RegisterMosque = () => {
   });
 
   const [loading, setLoading] = useState(false);
+  const [alert, setAlert] = useState({ show: false, message: '', type: 'error' });
+  const [toast, setToast] = useState({ show: false, message: '' });
 
   const showAlert = (message, type = 'error') => {
     if (type === 'success') {
@@ -33,6 +36,13 @@ const RegisterMosque = () => {
     } else {
       toast.error(message);
     }
+  };
+
+  const showToast = (message) => {
+    setToast({ show: true, message });
+    setTimeout(() => {
+      setToast({ show: false, message: '' });
+    }, 5000);
   };
 
   const handleInputChange = (e) => {
@@ -59,6 +69,7 @@ const RegisterMosque = () => {
     setLoading(false);
 
     if (result.success) {
+      showToast('✅ Please check your email to verify your account');
       showAlert(result.message || 'Registration successful! Please check your email to verify your account.', 'success');
       setTimeout(() => {
         navigate('/login');
@@ -70,6 +81,34 @@ const RegisterMosque = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      
+      {/* Toast Notification */}
+      {toast.show && (
+        <div className="fixed top-4 right-4 z-50 max-w-md w-full animate-slide-in-right">
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl shadow-2xl p-4 backdrop-blur-sm">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-emerald-800">{toast.message}</p>
+                <p className="text-xs text-emerald-600 mt-0.5 font-medium">
+                  📧 Check your inbox and spam folder
+                </p>
+              </div>
+              <button
+                onClick={() => setToast({ show: false, message: '' })}
+                className="text-emerald-600 hover:text-emerald-800 transition-colors flex-shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Decorative patterns */}
       <div className="absolute inset-0 opacity-5 bg-[radial-gradient(#0f766e_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none"></div>
 
@@ -215,6 +254,23 @@ const RegisterMosque = () => {
           </div>
         </div>
       </div>
+
+      {/* Custom CSS for Toast Animation */}
+      <style>{`
+        @keyframes slide-in-right {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        .animate-slide-in-right {
+          animation: slide-in-right 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+      `}</style>
     </div>
   );
 };
