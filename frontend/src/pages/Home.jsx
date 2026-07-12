@@ -195,7 +195,7 @@ const formatTime = (time) => {
       </div>
 
       {/* Search & Filter Container */}
-      <div className="max-w-7xl mx-auto px-4 -mt-8 sm:px-6 lg:px-8 relative z-20">
+      <div className="max-w-7xl mx-auto px-4-mt-8 sm:px-6 lg:px-8 relative z-20">
         <form
           onSubmit={handleSearchSubmit}
           className="bg-white p-5 rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-100 flex flex-col md:flex-row gap-4 items-center justify-between"
