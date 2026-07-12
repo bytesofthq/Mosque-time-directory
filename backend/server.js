@@ -183,6 +183,37 @@ const startServer = async () => {
   };
   await seedMosqueSlugs();
 
+  // Seed mosque locations for GeoJSON geospatial queries
+  const seedMosqueLocations = async () => {
+    try {
+      const Mosque = require('./models/Mosque');
+      const mosques = await Mosque.find({ 
+        $or: [
+          { location: { $exists: false } },
+          { location: null },
+          { "location.coordinates": { $size: 0 } },
+          { "location.coordinates": null }
+        ],
+        latitude: { $ne: null },
+        longitude: { $ne: null }
+      });
+      if (mosques.length > 0) {
+        console.log(`[Startup] Found ${mosques.length} mosques without GeoJSON location field. Migrating...`);
+        for (const mosque of mosques) {
+          mosque.location = {
+            type: 'Point',
+            coordinates: [Number(mosque.longitude), Number(mosque.latitude)]
+          };
+          await mosque.save();
+        }
+        console.log(`[Startup] Successfully migrated ${mosques.length} mosques to GeoJSON location structure.`);
+      }
+    } catch (error) {
+      console.error('[Startup] Error migrating mosque locations:', error);
+    }
+  };
+  await seedMosqueLocations();
+
   // Seed the admin
   await seedRootAdmin();
 

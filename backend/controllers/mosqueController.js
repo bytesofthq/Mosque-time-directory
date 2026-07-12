@@ -1,4 +1,5 @@
 const Mosque = require('../models/Mosque');
+const { getNearbyMosquesWithWalkingDistance } = require('../utils/locationHelper');
 const PrayerTiming = require('../models/PrayerTiming');
 const Announcement = require('../models/Announcement');
 const User = require('../models/User');
@@ -292,7 +293,7 @@ const getPublicMosqueDetails = async (req, res) => {
   }
 };
 
-// @desc    Get nearby mosques by radius filtering (100m, 200m, 500m, 1km)
+// @desc    Get nearby mosques by radius filtering using Geospatial indexing & OSRM Foot Routing API
 // @route   GET /api/public/mosques-nearby
 // @access  Public
 const getNearbyMosques = async (req, res) => {
@@ -307,33 +308,18 @@ const getNearbyMosques = async (req, res) => {
     const userLng = parseFloat(lng);
     const filterRadius = parseFloat(radius);
 
-    const mosques = await Mosque.find({
-      latitude: { $ne: null },
-      longitude: { $ne: null }
-    });
+    if (isNaN(userLat) || isNaN(userLng) || isNaN(filterRadius)) {
+      return res.status(400).json({ message: 'Invalid latitude, longitude, or radius values' });
+    }
 
-    const getDistance = (lat1, lon1, lat2, lon2) => {
-      const R = 6371e3; // meters
-      const phi1 = lat1 * Math.PI / 180;
-      const phi2 = lat2 * Math.PI / 180;
-      const deltaPhi = (lat2 - lat1) * Math.PI / 180;
-      const deltaLambda = (lon2 - lon1) * Math.PI / 180;
-
-      const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-                Math.cos(phi1) * Math.cos(phi2) *
-                Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-      return R * c; // distance in meters
-    };
-
-    const nearbyMosques = mosques
-      .map(mosque => {
-        const distance = getDistance(userLat, userLng, mosque.latitude, mosque.longitude);
-        return { ...mosque.toObject(), distance };
-      })
-      .filter(mosque => mosque.distance <= filterRadius)
-      .sort((a, b) => a.distance - b.distance);
+    // Retrieve mosques matching geospatial search and fetch actual walking route distances
+    // Limit to 20 candidate mosques to optimize OSRM query counts
+    const nearbyMosques = await getNearbyMosquesWithWalkingDistance(
+      userLat,
+      userLng,
+      filterRadius,
+      20
+    );
 
     return res.json(nearbyMosques);
   } catch (error) {

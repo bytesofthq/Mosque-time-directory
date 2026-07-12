@@ -6,7 +6,9 @@ import {
   MapPin, 
   ArrowRight, 
   Navigation, 
-  AlertCircle 
+  AlertCircle,
+  Footprints,
+  Clock
 } from 'lucide-react';
 import defaultMosque from '../assets/default_mosque.png';
 
@@ -88,10 +90,17 @@ const NearbyMosques = () => {
   }, [coordinates, radius]);
 
   const formatDistance = (meters) => {
+    if (!meters && meters !== 0) return '';
     if (meters < 1000) {
-      return `${Math.round(meters)}m`;
+      return `${Math.round(meters)} m`;
     }
     return `${(meters / 1000).toFixed(2)} km`;
+  };
+
+  const formatDuration = (seconds) => {
+    if (!seconds && seconds !== 0) return '';
+    const mins = Math.ceil(seconds / 60);
+    return `${mins} min`;
   };
 
   return (
@@ -107,6 +116,12 @@ const NearbyMosques = () => {
           <p className="text-teal-100 text-base max-w-xl mx-auto font-medium">
             Locate mosques around you based on your current physical location and filter by distance.
           </p>
+          {coordinates && (
+            <div className="mt-3 text-xs text-emerald-300 font-bold bg-teal-900/40 border border-teal-700/30 px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 shadow-sm">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+              <span>My Location: {coordinates.lat.toFixed(6)}, {coordinates.lng.toFixed(6)}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -121,6 +136,7 @@ const NearbyMosques = () => {
             >
               <option value={100}>100 Meters</option>
               <option value={200}>200 Meters</option>
+              <option value={300}>300 Meters</option>
               <option value={500}>500 Meters</option>
               <option value={1000}>1 Kilometer</option>
             </select>
@@ -197,8 +213,9 @@ const NearbyMosques = () => {
                     onError={(e) => { e.target.src = defaultMosque; }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500"
                   />
-                  <div className="absolute top-4 right-4 bg-teal-800/95 backdrop-blur-sm text-emerald-400 font-bold text-xs px-3 py-1.5 rounded-full shadow-md">
-                    {formatDistance(mosque.distance)} away
+                  <div className="absolute top-4 right-4 bg-teal-800/95 backdrop-blur-sm text-emerald-400 font-bold text-xs px-3 py-1.5 rounded-full shadow-md flex items-center gap-1">
+                    <Footprints className="h-3.5 w-3.5" />
+                    <span>{formatDistance(mosque.distance)} walk</span>
                   </div>
                 </div>
 
@@ -208,7 +225,20 @@ const NearbyMosques = () => {
                     {mosque.mosqueName}
                   </h3>
                   
-                  <div className="flex items-center text-slate-500 text-sm mt-2 font-medium">
+                  {/* Walking Details Row */}
+                  <div className="flex items-center gap-3.5 mt-2 bg-slate-50 border border-slate-100 p-2 px-3 rounded-xl w-fit">
+                    <div className="flex items-center gap-1 text-slate-600 text-xs font-bold">
+                      <Footprints className="h-4 w-4 text-teal-600" />
+                      <span>{formatDistance(mosque.distance)}</span>
+                    </div>
+                    <div className="h-3 w-px bg-slate-200" />
+                    <div className="flex items-center gap-1 text-slate-600 text-xs font-bold">
+                      <Clock className="h-3.5 w-3.5 text-emerald-600" />
+                      <span>{formatDuration(mosque.duration)} Walk</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center text-slate-500 text-sm mt-3 font-medium">
                     <MapPin className="h-4 w-4 text-slate-400 mr-1.5 flex-shrink-0" />
                     <span className="truncate">{mosque.address}</span>
                   </div>
@@ -224,7 +254,7 @@ const NearbyMosques = () => {
                   {/* View Details CTA */}
                   <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
                     <a 
-                      href={mosque.googleMapLink} 
+                      href={coordinates ? `https://www.google.com/maps/dir/?api=1&origin=${coordinates.lat},${coordinates.lng}&destination=${mosque.latitude},${mosque.longitude}&travelmode=walking` : mosque.googleMapLink} 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="text-xs font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1 transition-colors"

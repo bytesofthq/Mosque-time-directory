@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-toastify';
 import api, { BACKEND_URL } from '../utils/api';
 import { Megaphone, Trash2, Calendar, Building, MapPin, X } from 'lucide-react';
 
@@ -39,11 +40,12 @@ const AdminAnnouncements = () => {
   const handleDeleteSubmit = async () => {
     try {
       await api.delete(`/announcements/all/${deleteId}`);
+      toast.success('Announcement deleted successfully!');
       setIsDeleteOpen(false);
       fetchAnnouncements();
     } catch (error) {
       console.error('Error deleting announcement:', error);
-      alert('Failed to delete announcement');
+      toast.error('Failed to delete announcement');
     }
   };
 

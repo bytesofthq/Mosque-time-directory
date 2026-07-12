@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import api from '../utils/api';
 import { User, Mail, Phone, Lock, Key, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { toast } from 'react-toastify';
 
 const Profile = () => {
   const { user, updateProfileState } = useAuth();
@@ -21,7 +22,6 @@ const Profile = () => {
   });
 
   const [loading, setLoading] = useState(false);
-  const [alert, setAlert] = useState({ show: false, message: '', type: 'error' });
 
   // Initialize fields on load
   useEffect(() => {
@@ -35,11 +35,13 @@ const Profile = () => {
   }, [user]);
 
   const showAlert = (message, type = 'error') => {
-    setAlert({ show: true, message, type });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    setTimeout(() => {
-      setAlert({ show: false, message: '', type: 'error' });
-    }, 5000);
+    if (type === 'success') {
+      toast.success(message);
+    } else if (type === 'warning') {
+      toast.warning(message);
+    } else {
+      toast.error(message);
+    }
   };
 
   const handleProfileChange = (e) => {
@@ -54,8 +56,8 @@ const Profile = () => {
 
   const handleProfileSubmit = async (e) => {
     e.preventDefault();
-    if (!profileData.name.trim() || !profileData.email.trim()) {
-      return showAlert('Please fill in all profile fields.');
+    if (!profileData.name.trim() || (!profileData.email.trim() && !profileData.mobile.trim())) {
+      return showAlert('Please configure your name, and at least one of Email or Mobile number.');
     }
 
     setLoading(true);
@@ -111,19 +113,6 @@ const Profile = () => {
         <p className="text-slate-500 text-xs font-semibold mt-1">Configure profile details and login passwords.</p>
       </div>
 
-      {/* Global alert block */}
-      {alert.show && (
-        <div className={`p-4 rounded-xl flex items-start space-x-2.5 text-sm font-semibold transition-all shadow-sm ${
-          alert.type === 'error' ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-        }`}>
-          {alert.type === 'error' ? (
-            <AlertCircle className="h-5 w-5 flex-shrink-0" />
-          ) : (
-            <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
-          )}
-          <span>{alert.message}</span>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         
@@ -153,7 +142,7 @@ const Profile = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Email Address</label>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Email Address (Optional if Mobile provided)</label>
                 <div className="relative rounded-lg shadow-sm">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Mail className="h-4 w-4 text-slate-400" />
@@ -168,8 +157,18 @@ const Profile = () => {
                 </div>
               </div>
 
+              {/* OR Divider */}
+              <div className="relative my-2 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-100"></div>
+                </div>
+                <span className="relative px-3 bg-white text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  OR
+                </span>
+              </div>
+
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Mobile Number (Optional)</label>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Mobile Number (Optional if Email provided)</label>
                 <div className="relative rounded-lg shadow-sm">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Phone className="h-4 w-4 text-slate-400" />

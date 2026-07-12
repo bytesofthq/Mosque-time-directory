@@ -299,15 +299,24 @@ const getMosqueAdmins = async (req, res) => {
 const createAndAssignAdmin = async (req, res) => {
   const { name, email, mobile, password, mosqueId } = req.body;
 
-  if (!name || !email || !password) {
-    return res.status(400).json({ message: 'Name, email, and password fields are required' });
+  if (!name || (!email && !mobile) || !password) {
+    return res.status(400).json({ message: 'Name, password, and at least one of Email or Mobile number are required' });
   }
 
   try {
-    // 1. Check if email is unique
-    const emailExists = await User.findOne({ email: email.toLowerCase() });
-    if (emailExists) {
-      return res.status(400).json({ message: 'An account with this email already exists' });
+    // 1. Check uniqueness if provided
+    if (email) {
+      const emailExists = await User.findOne({ email: email.toLowerCase() });
+      if (emailExists) {
+        return res.status(400).json({ message: 'An account with this email already exists' });
+      }
+    }
+
+    if (mobile) {
+      const mobileExists = await User.findOne({ mobile: mobile.trim() });
+      if (mobileExists) {
+        return res.status(400).json({ message: 'An account with this mobile number already exists' });
+      }
     }
 
     // 2. Check mosque details if assigned
@@ -327,12 +336,13 @@ const createAndAssignAdmin = async (req, res) => {
     // 3. Create new user
     const admin = new User({
       name,
-      email: email.toLowerCase(),
-      mobile: mobile || '',
+      email: email ? email.toLowerCase() : undefined,
+      mobile: mobile ? mobile.trim() : undefined,
       password, // Pre-save hook hashes this
       role: 'MOSQUE_ADMIN',
       mosqueId: mosqueId || null,
-      isActive: true
+      isActive: true,
+      isEmailVerified: true // Admins created by root admins are pre-verified
     });
 
     const savedAdmin = await admin.save();
@@ -341,8 +351,8 @@ const createAndAssignAdmin = async (req, res) => {
       admin: {
         _id: savedAdmin._id,
         name: savedAdmin.name,
-        email: savedAdmin.email,
-        mobile: savedAdmin.mobile,
+        email: savedAdmin.email || '',
+        mobile: savedAdmin.mobile || '',
         role: savedAdmin.role,
         mosqueId: savedAdmin.mosqueId,
         isActive: savedAdmin.isActive
@@ -367,16 +377,37 @@ const updateUser = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    if (email && email.toLowerCase() !== user.email) {
-      const emailExists = await User.findOne({ email: email.toLowerCase() });
-      if (emailExists) {
-        return res.status(400).json({ message: 'Email already exists' });
+    // Handle email update and uniqueness
+    if (email !== undefined) {
+      if (email === '') {
+        user.email = undefined;
+      } else if (email.toLowerCase() !== user.email) {
+        const emailExists = await User.findOne({ email: email.toLowerCase() });
+        if (emailExists) {
+          return res.status(400).json({ message: 'Email already exists' });
+        }
+        user.email = email.toLowerCase();
       }
-      user.email = email.toLowerCase();
+    }
+
+    // Handle mobile update and uniqueness
+    if (mobile !== undefined) {
+      if (mobile === '') {
+        user.mobile = undefined;
+      } else if (mobile.trim() !== user.mobile) {
+        const mobileExists = await User.findOne({ mobile: mobile.trim() });
+        if (mobileExists) {
+          return res.status(400).json({ message: 'Mobile number already exists' });
+        }
+        user.mobile = mobile.trim();
+      }
+    }
+
+    if (!user.email && !user.mobile) {
+      return res.status(400).json({ message: 'At least one of Email or Mobile number must be configured' });
     }
 
     user.name = name || user.name;
-    user.mobile = mobile !== undefined ? mobile : user.mobile;
 
     // Handle mosqueId assignment change
     if (mosqueId !== undefined) {
@@ -400,7 +431,15 @@ const updateUser = async (req, res) => {
     const updatedUser = await user.save();
     return res.json({
       message: 'User updated successfully',
-      admin: updatedUser
+      admin: {
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email || '',
+        mobile: updatedUser.mobile || '',
+        role: updatedUser.role,
+        mosqueId: updatedUser.mosqueId,
+        isActive: updatedUser.isActive
+      }
     });
   } catch (error) {
     console.error('Update user error:', error);

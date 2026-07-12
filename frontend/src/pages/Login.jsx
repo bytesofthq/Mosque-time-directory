@@ -2,17 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Compass, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { toast } from 'react-toastify';
 
 const Login = () => {
   const { user, login } = useAuth();
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   
   const [loading, setLoading] = useState(false);
-  const [alert, setAlert] = useState({ show: false, message: '', type: 'error' });
 
   // If already logged in, redirect straight to dashboard
   useEffect(() => {
@@ -26,21 +26,24 @@ const Login = () => {
   }, [user, navigate]);
 
   const showAlert = (message, type = 'error') => {
-    setAlert({ show: true, message, type });
-    setTimeout(() => {
-      setAlert({ show: false, message: '', type: 'error' });
-    }, 5000);
+    if (type === 'success') {
+      toast.success(message);
+    } else if (type === 'warning') {
+      toast.warning(message);
+    } else {
+      toast.error(message);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!email || !password) {
-      return showAlert('Please enter both email and password.');
+    if (!identifier.trim() || !password) {
+      return showAlert('Please enter both email/mobile number and password.');
     }
 
     setLoading(true);
-    const result = await login(email, password);
+    const result = await login(identifier, password);
     setLoading(false);
 
     if (!result.success) {
@@ -70,33 +73,25 @@ const Login = () => {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10 px-4">
         <div className="bg-white py-8 px-6 sm:px-10 rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100">
           
-          {/* Custom Alert Messages */}
-          {alert.show && (
-            <div className={`mb-6 p-4 rounded-xl flex items-start space-x-2.5 text-sm font-semibold transition-all ${
-              alert.type === 'error' ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-            }`}>
-              <AlertCircle className="h-5 w-5 flex-shrink-0" />
-              <span>{alert.message}</span>
-            </div>
-          )}
+
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Email Field */}
+            {/* Identifier Field */}
             <div>
-              <label htmlFor="email" className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                Email Address
+              <label htmlFor="identifier" className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                Email or Mobile Number
               </label>
               <div className="relative rounded-xl shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
                   <Mail className="h-5 w-5 text-slate-400" />
                 </div>
                 <input
-                  id="email"
-                  type="email"
+                  id="identifier"
+                  type="text"
                   required
-                  placeholder="name@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Email address or mobile contact"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
                   className="block w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:border-transparent text-slate-800 placeholder-slate-400 transition-all font-medium text-sm"
                 />
               </div>

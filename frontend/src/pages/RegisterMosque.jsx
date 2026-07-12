@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { toast } from 'react-toastify';
 import { 
   Compass, 
   User, 
@@ -23,14 +24,15 @@ const RegisterMosque = () => {
   });
 
   const [loading, setLoading] = useState(false);
-  const [alert, setAlert] = useState({ show: false, message: '', type: 'error' });
 
   const showAlert = (message, type = 'error') => {
-    setAlert({ show: true, message, type });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    setTimeout(() => {
-      setAlert({ show: false, message: '', type: 'error' });
-    }, 6000);
+    if (type === 'success') {
+      toast.success(message);
+    } else if (type === 'warning') {
+      toast.warning(message);
+    } else {
+      toast.error(message);
+    }
   };
 
   const handleInputChange = (e) => {
@@ -44,8 +46,8 @@ const RegisterMosque = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.name || !formData.email || !formData.password) {
-      return showAlert('Please fill out all required details.');
+    if (!formData.name || (!formData.email.trim() && !formData.mobile.trim()) || !formData.password) {
+      return showAlert('Name, password, and at least one of Email or Mobile number are required.');
     }
     if (formData.password.length < 6) {
       return showAlert('Password must be at least 6 characters long.');
@@ -88,15 +90,7 @@ const RegisterMosque = () => {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10 px-4">
         <div className="bg-white py-8 px-6 sm:px-10 rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100">
           
-          {/* Custom Alert Messages */}
-          {alert.show && (
-            <div className={`mb-6 p-4 rounded-xl flex items-start space-x-2.5 text-sm font-semibold transition-all border ${
-              alert.type === 'error' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-emerald-50 text-emerald-700 border-emerald-100'
-            }`}>
-              {alert.type === 'error' ? <AlertCircle className="h-5 w-5 flex-shrink-0" /> : <CheckCircle2 className="h-5 w-5 flex-shrink-0" />}
-              <span>{alert.message}</span>
-            </div>
-          )}
+
 
           <form onSubmit={handleSubmit} className="space-y-6">
 
@@ -125,7 +119,7 @@ const RegisterMosque = () => {
             {/* Email Field */}
             <div>
               <label htmlFor="email" className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                Email Address
+                Email Address (Optional if Mobile provided)
               </label>
               <div className="relative rounded-xl shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
@@ -135,7 +129,6 @@ const RegisterMosque = () => {
                   id="email"
                   name="email"
                   type="email"
-                  required
                   placeholder="name@example.com"
                   value={formData.email}
                   onChange={handleInputChange}
@@ -144,10 +137,20 @@ const RegisterMosque = () => {
               </div>
             </div>
 
+            {/* OR Divider */}
+            <div className="relative my-2 flex items-center justify-center">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-100"></div>
+              </div>
+              <span className="relative px-3 bg-white text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                OR
+              </span>
+            </div>
+
             {/* Mobile Field */}
             <div>
               <label htmlFor="mobile" className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                Mobile Number (Optional)
+                Mobile Number (Optional if Email provided)
               </label>
               <div className="relative rounded-xl shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">

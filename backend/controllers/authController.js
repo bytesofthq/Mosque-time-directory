@@ -9,37 +9,44 @@ const { sendVerificationEmail } = require('../utils/emailHelper');
 // @route   POST /api/auth/login
 // @access  Public
 const loginUser = async (req, res) => {
-  const { email, password } = req.body;
+  const { email, mobile, identifier, password } = req.body;
+  const loginInput = identifier || email || mobile;
 
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Please provide both email and password' });
+  if (!loginInput || !password) {
+    return res.status(400).json({ message: 'Please provide email or mobile number, and password' });
   }
 
   try {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({
+      $or: [
+        { email: loginInput.toLowerCase() },
+        { mobile: loginInput.trim() }
+      ]
+    });
 
     if (!user) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Invalid email/mobile number or password' });
     }
 
     if (!user.isActive) {
       return res.status(403).json({ message: 'Your account is deactivated. Please contact root admin.' });
     }
 
-    if (!user.isEmailVerified) {
+    // Only enforce email verification check if email exists on account and user has not verified it.
+    if (user.email && !user.isEmailVerified) {
       return res.status(403).json({ message: 'Please verify your email address before logging in. Check your inbox for the verification link.' });
     }
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Invalid email/mobile number or password' });
     }
 
     return res.json({
       _id: user._id,
       name: user.name,
-      email: user.email,
-      mobile: user.mobile,
+      email: user.email || '',
+      mobile: user.mobile || '',
       role: user.role,
       mosqueId: user.mosqueId,
       token: generateToken(user._id)
@@ -75,24 +82,48 @@ const updateUserProfile = async (req, res) => {
     const user = await User.findById(req.user._id);
 
     if (user) {
-      user.name = req.body.name || user.name;
-      user.mobile = req.body.mobile || user.mobile;
-      
-      if (req.body.email) {
-        const emailExists = await User.findOne({ email: req.body.email.toLowerCase() });
-        if (emailExists && emailExists._id.toString() !== user._id.toString()) {
-          return res.status(400).json({ message: 'Email is already in use by another user' });
+      const email = req.body.email;
+      const mobile = req.body.mobile;
+
+      // Uniqueness check for email
+      if (email !== undefined) {
+        if (email === '') {
+          user.email = undefined;
+        } else if (email.toLowerCase() !== user.email) {
+          const emailExists = await User.findOne({ email: email.toLowerCase() });
+          if (emailExists && emailExists._id.toString() !== user._id.toString()) {
+            return res.status(400).json({ message: 'Email is already in use by another user' });
+          }
+          user.email = email.toLowerCase();
         }
-        user.email = req.body.email.toLowerCase();
       }
+
+      // Uniqueness check for mobile
+      if (mobile !== undefined) {
+        if (mobile === '') {
+          user.mobile = undefined;
+        } else if (mobile.trim() !== user.mobile) {
+          const mobileExists = await User.findOne({ mobile: mobile.trim() });
+          if (mobileExists && mobileExists._id.toString() !== user._id.toString()) {
+            return res.status(400).json({ message: 'Mobile number is already in use by another user' });
+          }
+          user.mobile = mobile.trim();
+        }
+      }
+
+      if (!user.email && !user.mobile) {
+        return res.status(400).json({ message: 'At least one of Email or Mobile number must be configured' });
+      }
+
+      user.name = req.body.name || user.name;
 
       const updatedUser = await user.save();
 
       return res.json({
         _id: updatedUser._id,
         name: updatedUser.name,
-        email: updatedUser.email,
-        mobile: updatedUser.mobile,
+        email: updatedUser.email || '',
+        mobile: updatedUser.mobile || '',
         role: updatedUser.role,
         mosqueId: updatedUser.mosqueId
       });
@@ -158,8 +189,8 @@ const registerAdminWithMosque = async (req, res) => {
     aboutMasjid
   } = req.body;
 
-  if (!name || !email || !password) {
-    return res.status(400).json({ message: 'All admin registration fields are required' });
+  if (!name || (!email && !mobile) || !password) {
+    return res.status(400).json({ message: 'Name, password, and at least one of Email or Mobile number are required' });
   }
 
   if (!mosqueName || !address || !area || !city || !state || !pincode || !googleMapLink) {
@@ -167,9 +198,18 @@ const registerAdminWithMosque = async (req, res) => {
   }
 
   try {
-    const emailExists = await User.findOne({ email: email.toLowerCase() });
-    if (emailExists) {
-      return res.status(400).json({ message: 'An account with this email already exists' });
+    if (email) {
+      const emailExists = await User.findOne({ email: email.toLowerCase() });
+      if (emailExists) {
+        return res.status(400).json({ message: 'An account with this email already exists' });
+      }
+    }
+
+    if (mobile) {
+      const mobileExists = await User.findOne({ mobile: mobile.trim() });
+      if (mobileExists) {
+        return res.status(400).json({ message: 'An account with this mobile number already exists' });
+      }
     }
 
     const mongoose = require('mongoose');
@@ -202,29 +242,39 @@ const registerAdminWithMosque = async (req, res) => {
     });
     await defaultTimings.save();
 
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    const verificationTokenExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+    const verificationToken = email ? crypto.randomBytes(32).toString('hex') : null;
+    const verificationTokenExpires = email ? Date.now() + 24 * 60 * 60 * 1000 : null;
 
     const admin = new User({
       _id: adminId,
       name,
-      email: email.toLowerCase(),
-      mobile: mobile || '',
+      email: email ? email.toLowerCase() : undefined,
+      mobile: mobile ? mobile.trim() : undefined,
       password,
       role: 'MOSQUE_ADMIN',
       mosqueId: savedMosque._id,
       isActive: true,
-      isEmailVerified: false,
+      isEmailVerified: email ? false : true,
       emailVerificationToken: verificationToken,
       emailVerificationExpires: verificationTokenExpires
     });
     const savedAdmin = await admin.save();
 
-    // Send verification email via Brevo
-    await sendVerificationEmail(savedAdmin.email, savedAdmin.name, verificationToken);
+    // Send verification email via Brevo if email is provided
+    if (email) {
+      try {
+        await sendVerificationEmail(savedAdmin.email, savedAdmin.name, verificationToken);
+      } catch (emailError) {
+        console.error('Error sending verification email:', emailError);
+      }
+    }
+
+    const successMessage = email
+      ? 'Registration successful! Please check your email to verify your account before logging in.'
+      : 'Registration successful! You can now log in using your mobile number.';
 
     return res.status(201).json({
-      message: 'Registration successful! Please check your email to verify your account before logging in.'
+      message: successMessage
     });
   } catch (error) {
     console.error('Public mosque registration error:', error);
@@ -272,43 +322,58 @@ const verifyEmail = async (req, res) => {
 const registerUser = async (req, res) => {
   const { name, email, mobile, password } = req.body;
 
-  if (!name || !email || !password) {
-    return res.status(400).json({ message: 'Name, email, and password are required' });
+  if (!name || (!email && !mobile) || !password) {
+    return res.status(400).json({ message: 'Name, password, and at least one of Email or Mobile number are required' });
   }
 
   try {
-    const emailExists = await User.findOne({ email: email.toLowerCase() });
-    if (emailExists) {
-      return res.status(400).json({ message: 'An account with this email already exists' });
+    if (email) {
+      const emailExists = await User.findOne({ email: email.toLowerCase() });
+      if (emailExists) {
+        return res.status(400).json({ message: 'An account with this email already exists' });
+      }
     }
 
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    const verificationTokenExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+    if (mobile) {
+      const mobileExists = await User.findOne({ mobile: mobile.trim() });
+      if (mobileExists) {
+        return res.status(400).json({ message: 'An account with this mobile number already exists' });
+      }
+    }
+
+    const verificationToken = email ? crypto.randomBytes(32).toString('hex') : null;
+    const verificationTokenExpires = email ? Date.now() + 24 * 60 * 60 * 1000 : null;
 
     const user = new User({
       name,
-      email: email.toLowerCase(),
-      mobile: mobile || '',
+      email: email ? email.toLowerCase() : undefined,
+      mobile: mobile ? mobile.trim() : undefined,
       password,
       role: 'MOSQUE_ADMIN',
       mosqueId: null,
       isActive: true,
-      isEmailVerified: false,
+      isEmailVerified: email ? false : true,
       emailVerificationToken: verificationToken,
       emailVerificationExpires: verificationTokenExpires
     });
 
     const savedUser = await user.save();
 
-    // Send verification email via Brevo
-    try {
-      await sendVerificationEmail(savedUser.email, savedUser.name, verificationToken);
-    } catch (emailError) {
-      console.error('Error sending verification email:', emailError);
+    // Send verification email if email is provided
+    if (email) {
+      try {
+        await sendVerificationEmail(savedUser.email, savedUser.name, verificationToken);
+      } catch (emailError) {
+        console.error('Error sending verification email:', emailError);
+      }
     }
 
+    const successMessage = email
+      ? 'Registration successful! Please check your email to verify your account before logging in.'
+      : 'Registration successful! You can now log in using your mobile number.';
+
     return res.status(201).json({
-      message: 'Registration successful! Please check your email to verify your account before logging in.'
+      message: successMessage
     });
   } catch (error) {
     console.error('User registration error:', error);

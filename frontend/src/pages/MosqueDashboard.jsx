@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api, { BACKEND_URL } from '../utils/api';
+import { getCurrentLocation, reverseGeocode, forwardGeocode } from '../utils/location';
 import { useAuth } from '../hooks/useAuth';
 import { 
   Building, 
@@ -81,81 +82,45 @@ const MosqueDashboard = () => {
     });
   };
 
-  const detectLocation = () => {
-    if (!navigator.geolocation) {
-      return showAlert('Geolocation is not supported by your browser.');
-    }
-
+  const detectLocation = async () => {
     setGeoLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const lat = position.coords.latitude.toFixed(6);
-        const lon = position.coords.longitude.toFixed(6);
+    try {
+      const coords = await getCurrentLocation();
+      const lat = coords.latitude.toFixed(6);
+      const lon = coords.longitude.toFixed(6);
 
-        let reverseGeocodeData = {};
-        try {
-          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=en`);
-          const responseData = await response.json();
-          if (responseData) {
-            const addr = responseData.address || {};
-            
-            let streetAddress = addr.road || addr.street || addr.residential || addr.path || '';
-            if (!streetAddress && responseData.display_name) {
-              const parts = responseData.display_name.split(',');
-              streetAddress = parts[0]?.trim() || '';
-            }
+      const addressData = await reverseGeocode(lat, lon);
 
-            let areaLocality = addr.suburb || addr.neighbourhood || addr.village || addr.hamlet || addr.town || addr.city_district || '';
-            if (!areaLocality && responseData.display_name) {
-              const parts = responseData.display_name.split(',');
-              areaLocality = parts[1]?.trim() || parts[0]?.trim() || '';
-            }
-
-            reverseGeocodeData = {
-              address: streetAddress,
-              area: areaLocality,
-              city: addr.city || addr.state_district || addr.county || addr.town || '',
-              state: addr.state || '',
-              pincode: addr.postcode || '',
-            };
-          }
-        } catch (error) {
-          console.error("Error fetching reverse geocode data:", error);
+      setFormData(prev => {
+        const mName = prev.mosqueName || 'Our Mosque';
+        const locality = addressData.area || addressData.locality || addressData.city || 'our local community';
+        
+        let generatedAbout = prev.aboutMasjid;
+        if (!generatedAbout) {
+           generatedAbout = `Welcome to ${mName}. Located in the heart of ${locality}, our mosque serves as a spiritual center for daily prayers, community gatherings, and Islamic education.`;
         }
 
-        setFormData(prev => {
-          const mName = prev.mosqueName || 'Our Mosque';
-          const locality = reverseGeocodeData.area || reverseGeocodeData.city || 'our local community';
-          
-          let generatedAbout = prev.aboutMasjid;
-          if (!generatedAbout) {
-             generatedAbout = `Welcome to ${mName}. Located in the heart of ${locality}, our mosque serves as a spiritual center for daily prayers, community gatherings, and Islamic education.`;
-          }
+        return {
+          ...prev,
+          latitude: lat,
+          longitude: lon,
+          address: addressData.road || prev.address,
+          area: addressData.locality || prev.area,
+          city: addressData.city || prev.city,
+          state: addressData.state || prev.state,
+          pincode: addressData.postcode || prev.pincode,
+          googleMapLink: prev.googleMapLink || `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`,
+          aboutMasjid: generatedAbout
+        };
+      });
 
-          return {
-            ...prev,
-            latitude: lat,
-            longitude: lon,
-            address: reverseGeocodeData.address || prev.address,
-            area: reverseGeocodeData.area || prev.area,
-            city: reverseGeocodeData.city || prev.city,
-            state: reverseGeocodeData.state || prev.state,
-            pincode: reverseGeocodeData.pincode || prev.pincode,
-            googleMapLink: prev.googleMapLink || `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`,
-            aboutMasjid: generatedAbout
-          };
-        });
-
-        setGeoLoading(false);
-        showAlert('Location details auto-filled successfully!', 'success');
-      },
-      (error) => {
-        console.error('Error detecting location:', error);
-        setGeoLoading(false);
-        showAlert('Failed to detect location. Please enter details manually.');
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
+      showAlert('Location details auto-filled successfully!', 'success');
+    } catch (error) {
+      console.error('Error detecting location:', error);
+      showAlert(error.message || 'Failed to detect location. Please enter details manually.');
+    } finally {
+      setGeoLoading(false);
+    }
   };
 
   const resolveLocationFromAddress = async () => {
@@ -169,17 +134,13 @@ const MosqueDashboard = () => {
 
     for (const q of queries) {
       try {
-        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1&accept-language=en`);
-        const responseData = await response.json();
-        if (responseData && responseData.length > 0) {
-          const lat = parseFloat(responseData[0].lat).toFixed(6);
-          const lon = parseFloat(responseData[0].lon).toFixed(6);
-          
+        const result = await forwardGeocode(q);
+        if (result) {
           setFormData(prev => ({
             ...prev,
-            latitude: lat,
-            longitude: lon,
-            googleMapLink: `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`
+            latitude: result.latitude,
+            longitude: result.longitude,
+            googleMapLink: `https://www.google.com/maps/search/?api=1&query=${result.latitude},${result.longitude}`
           }));
           break;
         }
@@ -210,11 +171,10 @@ const MosqueDashboard = () => {
 
       for (const q of queries) {
         try {
-          const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1&accept-language=en`);
-          const responseData = await response.json();
-          if (responseData && responseData.length > 0) {
-            resolvedLat = parseFloat(responseData[0].lat).toFixed(6);
-            resolvedLon = parseFloat(responseData[0].lon).toFixed(6);
+          const result = await forwardGeocode(q);
+          if (result) {
+            resolvedLat = result.latitude;
+            resolvedLon = result.longitude;
             break;
           }
         } catch (error) {

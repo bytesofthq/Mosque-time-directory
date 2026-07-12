@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import { Building, MapPin, Phone, User, CheckCircle2, AlertCircle } from 'lucide-react';
+import { forwardGeocode } from '../utils/location';
+import { toast } from 'react-toastify';
 
 
 const MyMosqueDetails = () => {
   const [loading, setLoading] = useState(true);
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [alert, setAlert] = useState({ show: false, message: '', type: 'error' });
 
   // Form states
   const [formData, setFormData] = useState({
@@ -75,11 +76,13 @@ const MyMosqueDetails = () => {
   }, []);
 
   const showAlert = (message, type = 'error') => {
-    setAlert({ show: true, message, type });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    setTimeout(() => {
-      setAlert({ show: false, message: '', type: 'error' });
-    }, 5000);
+    if (type === 'success') {
+      toast.success(message);
+    } else if (type === 'warning') {
+      toast.warning(message);
+    } else {
+      toast.error(message);
+    }
   };
 
   const handleInputChange = (e) => {
@@ -123,17 +126,13 @@ const MyMosqueDetails = () => {
 
     for (const q of queries) {
       try {
-        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1&accept-language=en`);
-        const data = await response.json();
-        if (data && data.length > 0) {
-          const lat = parseFloat(data[0].lat).toFixed(6);
-          const lon = parseFloat(data[0].lon).toFixed(6);
-          
+        const result = await forwardGeocode(q);
+        if (result) {
           setFormData(prev => ({
             ...prev,
-            latitude: lat,
-            longitude: lon,
-            googleMapLink: `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`
+            latitude: result.latitude,
+            longitude: result.longitude,
+            googleMapLink: `https://www.google.com/maps/search/?api=1&query=${result.latitude},${result.longitude}`
           }));
           break;
         }
@@ -164,11 +163,10 @@ const MyMosqueDetails = () => {
 
     for (const q of queries) {
       try {
-        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1&accept-language=en`);
-        const data = await response.json();
-        if (data && data.length > 0) {
-          resolvedLat = parseFloat(data[0].lat).toFixed(6);
-          resolvedLon = parseFloat(data[0].lon).toFixed(6);
+        const result = await forwardGeocode(q);
+        if (result) {
+          resolvedLat = result.latitude;
+          resolvedLon = result.longitude;
           break;
         }
       } catch (error) {
@@ -223,19 +221,7 @@ const MyMosqueDetails = () => {
       </div>
 
 
-      {/* Alert Block */}
-      {alert.show && (
-        <div className={`p-4 rounded-xl flex items-start space-x-2.5 text-sm font-semibold transition-all shadow-sm ${
-          alert.type === 'error' ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-        }`}>
-          {alert.type === 'error' ? (
-            <AlertCircle className="h-5 w-5 flex-shrink-0" />
-          ) : (
-            <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
-          )}
-          <span>{alert.message}</span>
-        </div>
-      )}
+
 
       {/* Main Form Box */}
       <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-100 shadow-sm">

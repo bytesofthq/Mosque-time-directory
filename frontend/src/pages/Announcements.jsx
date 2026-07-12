@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-toastify';
 import api, { BACKEND_URL } from '../utils/api';
 import { Megaphone, Search, Plus, Edit2, Trash2, Calendar, X, Upload } from 'lucide-react';
 
@@ -118,11 +119,12 @@ const Announcements = () => {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
       }
+      toast.success(currentAnnouncement ? 'Announcement updated successfully!' : 'Announcement created successfully!');
       setIsModalOpen(false);
       fetchAnnouncements();
     } catch (error) {
       console.error('Error saving announcement:', error);
-      alert(error.response?.data?.message || 'Failed to save announcement. Make sure image format is correct.');
+      toast.error(error.response?.data?.message || 'Failed to save announcement. Make sure image format is correct.');
     } finally {
       setSubmitLoading(false);
     }
@@ -131,11 +133,12 @@ const Announcements = () => {
   const handleDeleteSubmit = async () => {
     try {
       await api.delete(`/announcements/my-mosque/${deleteId}`);
+      toast.success('Announcement deleted successfully!');
       setIsDeleteOpen(false);
       fetchAnnouncements();
     } catch (error) {
       console.error('Error deleting announcement:', error);
-      alert('Failed to delete announcement');
+      toast.error('Failed to delete announcement');
     }
   };
 

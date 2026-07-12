@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-toastify';
 import api from '../utils/api';
+import { getCurrentLocation, reverseGeocode } from '../utils/location';
 import { 
   Building, 
   Search, 
@@ -61,71 +63,34 @@ const AdminMosques = () => {
     }
   };
 
-  const detectLocation = () => {
-    if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser.');
-      return;
-    }
-
+  const detectLocation = async () => {
     setGeoLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const lat = position.coords.latitude.toFixed(6);
-        const lon = position.coords.longitude.toFixed(6);
+    try {
+      const coords = await getCurrentLocation();
+      const lat = coords.latitude.toFixed(6);
+      const lon = coords.longitude.toFixed(6);
 
-        let reverseGeocodeData = {};
-        try {
-          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=en`);
-          const responseData = await response.json();
-          if (responseData) {
-            const addr = responseData.address || {};
-            
-            let streetAddress = addr.road || addr.street || addr.residential || addr.path || '';
-            if (!streetAddress && responseData.display_name) {
-              const parts = responseData.display_name.split(',');
-              streetAddress = parts[0]?.trim() || '';
-            }
+      const addressData = await reverseGeocode(lat, lon);
 
-            let areaLocality = addr.suburb || addr.neighbourhood || addr.village || addr.hamlet || addr.town || addr.city_district || '';
-            if (!areaLocality && responseData.display_name) {
-              const parts = responseData.display_name.split(',');
-              areaLocality = parts[1]?.trim() || parts[0]?.trim() || '';
-            }
+      setFormData(prev => ({
+        ...prev,
+        latitude: lat,
+        longitude: lon,
+        address: addressData.road || prev.address,
+        area: addressData.locality || prev.area,
+        city: addressData.city || prev.city,
+        state: addressData.state || prev.state,
+        pincode: addressData.postcode || prev.pincode,
+        googleMapLink: prev.googleMapLink || `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`
+      }));
 
-            reverseGeocodeData = {
-              address: streetAddress,
-              area: areaLocality,
-              city: addr.city || addr.state_district || addr.county || addr.town || '',
-              state: addr.state || '',
-              pincode: addr.postcode || '',
-            };
-          }
-        } catch (error) {
-          console.error("Error fetching reverse geocode data:", error);
-        }
-
-        setFormData(prev => ({
-          ...prev,
-          latitude: lat,
-          longitude: lon,
-          address: reverseGeocodeData.address || prev.address,
-          area: reverseGeocodeData.area || prev.area,
-          city: reverseGeocodeData.city || prev.city,
-          state: reverseGeocodeData.state || prev.state,
-          pincode: reverseGeocodeData.pincode || prev.pincode,
-          googleMapLink: prev.googleMapLink || `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`
-        }));
-
-        setGeoLoading(false);
-        alert('Location details auto-filled successfully!');
-      },
-      (error) => {
-        console.error('Error detecting location:', error);
-        setGeoLoading(false);
-        alert('Failed to detect location. Please enter details manually.');
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
+      toast.success('Location details auto-filled successfully!');
+    } catch (error) {
+      console.error('Error detecting location:', error);
+      toast.error(error.message || 'Failed to detect location. Please enter details manually.');
+    } finally {
+      setGeoLoading(false);
+    }
   };
   
   // Form states
@@ -298,10 +263,10 @@ const AdminMosques = () => {
     try {
       await api.put(`/admin/mosques/${selectedMosqueForTimings._id}/timings`, timingsData);
       setIsTimingsModalOpen(false);
-      alert('Prayer timings updated successfully!');
+      toast.success('Prayer timings updated successfully!');
     } catch (error) {
       console.error('Error updating mosque timings:', error);
-      alert(error.response?.data?.message || 'Failed to update prayer timings.');
+      toast.error(error.response?.data?.message || 'Failed to update prayer timings.');
     } finally {
       setTimingsLoading(false);
     }
@@ -309,7 +274,7 @@ const AdminMosques = () => {
 
   const autoCalculateTimings = () => {
     if (!selectedMosqueForTimings?.latitude || !selectedMosqueForTimings?.longitude) {
-      alert('Mosque location coordinates are missing. Cannot calculate timings.');
+      toast.warning('Mosque location coordinates are missing. Cannot calculate timings.');
       return;
     }
 
@@ -337,10 +302,10 @@ const AdminMosques = () => {
         Jumma: { azan: '01:00 PM', khutbah: '01:30 PM' }
       });
 
-      alert('Prayer timings auto-calculated successfully! Remember to save changes.');
+      toast.success('Prayer timings auto-calculated successfully! Remember to save changes.');
     } catch (err) {
       console.error(err);
-      alert('Failed to calculate timings.');
+      toast.error('Failed to calculate timings.');
     }
   };
 
@@ -426,11 +391,12 @@ const AdminMosques = () => {
         });
       }
 
+      toast.success(currentMosque ? 'Mosque details updated successfully!' : 'Mosque created successfully!');
       setIsModalOpen(false);
       fetchMosques();
     } catch (error) {
       console.error('Error saving mosque:', error);
-      alert(error.response?.data?.message || 'Error occurred while saving mosque details');
+      toast.error(error.response?.data?.message || 'Error occurred while saving mosque details');
     } finally {
       setSubmitLoading(false);
     }
@@ -439,11 +405,12 @@ const AdminMosques = () => {
   const handleDeleteSubmit = async () => {
     try {
       await api.delete(`/admin/mosques/${deleteId}`);
+      toast.success('Mosque deleted successfully!');
       setIsDeleteOpen(false);
       fetchMosques();
     } catch (error) {
       console.error('Error deleting mosque:', error);
-      alert('Failed to delete mosque. Please try again.');
+      toast.error('Failed to delete mosque. Please try again.');
     }
   };
 

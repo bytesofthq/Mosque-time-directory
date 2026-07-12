@@ -71,6 +71,17 @@ const MosqueSchema = new mongoose.Schema({
     unique: true,
     sparse: true
   },
+  location: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: {
+      type: [Number], // [longitude, latitude]
+      default: null
+    }
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -79,6 +90,9 @@ const MosqueSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+// Index the location field for geospatial queries
+MosqueSchema.index({ location: '2dsphere' });
 
 const slugify = (text) => {
   return text
@@ -93,6 +107,16 @@ const slugify = (text) => {
 };
 
 MosqueSchema.pre('save', async function(next) {
+  // Automatically synchronize GeoJSON location coordinates whenever latitude or longitude is modified
+  if (this.isModified('latitude') || this.isModified('longitude') || !this.location || !this.location.coordinates) {
+    if (this.latitude !== null && this.longitude !== null && this.latitude !== undefined && this.longitude !== undefined) {
+      this.location = {
+        type: 'Point',
+        coordinates: [Number(this.longitude), Number(this.latitude)]
+      };
+    }
+  }
+
   if (this.isModified('mosqueName') || !this.slug) {
     let generatedSlug = slugify(this.mosqueName);
     const Mosque = mongoose.model('Mosque');

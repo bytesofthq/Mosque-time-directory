@@ -9,15 +9,18 @@ const UserSchema = new mongoose.Schema({
   },
   email: {
     type: String,
-    required: true,
+    required: false,
     unique: true,
+    sparse: true,
     lowercase: true,
     trim: true
   },
   mobile: {
     type: String,
     required: false,
-    default: ''
+    unique: true,
+    sparse: true,
+    trim: true
   },
   password: {
     type: String,
@@ -55,8 +58,16 @@ const UserSchema = new mongoose.Schema({
   }
 });
 
-// Pre-save hook to hash passwords
+// Pre-save hook to normalize fields and hash passwords
 UserSchema.pre('save', async function(next) {
+  // Convert empty strings to undefined to satisfy unique sparse index requirements in MongoDB
+  if (this.email === '') {
+    this.email = undefined;
+  }
+  if (this.mobile === '') {
+    this.mobile = undefined;
+  }
+
   if (!this.isModified('password')) {
     return next();
   }

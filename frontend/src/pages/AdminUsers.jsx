@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-toastify';
 import api from '../utils/api';
 import { 
   Users, 
@@ -114,7 +115,9 @@ const AdminUsers = () => {
   const validateCreateForm = () => {
     const errors = {};
     if (!formData.name.trim()) errors.name = 'Full name is required';
-    if (!formData.email.trim()) errors.email = 'Email address is required';
+    if (!formData.email.trim() && !formData.mobile.trim()) {
+      errors.email = 'At least one of Email or Mobile number is required';
+    }
     if (!formData.password.trim()) errors.password = 'Initial password is required';
     if (formData.password.length < 6) errors.password = 'Password must be at least 6 characters';
     return errors;
@@ -123,7 +126,9 @@ const AdminUsers = () => {
   const validateEditForm = () => {
     const errors = {};
     if (!formData.name.trim()) errors.name = 'Full name is required';
-    if (!formData.email.trim()) errors.email = 'Email address is required';
+    if (!formData.email.trim() && !formData.mobile.trim()) {
+      errors.email = 'At least one of Email or Mobile number is required';
+    }
     return errors;
   };
 
@@ -146,11 +151,12 @@ const AdminUsers = () => {
     setSubmitLoading(true);
     try {
       await api.post('/admin/admins', formData);
+      toast.success('Admin created and assigned successfully!');
       setIsCreateOpen(false);
       fetchAdmins();
     } catch (error) {
       console.error('Error creating admin:', error);
-      alert(error.response?.data?.message || 'Failed to create and assign admin');
+      toast.error(error.response?.data?.message || 'Failed to create and assign admin');
     } finally {
       setSubmitLoading(false);
     }
@@ -172,11 +178,12 @@ const AdminUsers = () => {
         mobile: formData.mobile,
         mosqueId: formData.mosqueId
       });
+      toast.success('Admin details updated successfully!');
       setIsEditOpen(false);
       fetchAdmins();
     } catch (error) {
       console.error('Error updating admin:', error);
-      alert(error.response?.data?.message || 'Failed to update user details');
+      toast.error(error.response?.data?.message || 'Failed to update user details');
     } finally {
       setSubmitLoading(false);
     }
@@ -189,17 +196,18 @@ const AdminUsers = () => {
 
     try {
       await api.delete(`/admin/admins/${adminId}`);
+      toast.success('User account deleted successfully!');
       fetchAdmins();
     } catch (error) {
       console.error('Error deleting user:', error);
-      alert(error.response?.data?.message || 'Failed to delete user');
+      toast.error(error.response?.data?.message || 'Failed to delete user');
     }
   };
 
   const handleResetSubmit = async (e) => {
     e.preventDefault();
     if (resetPasswordInput.length < 6) {
-      alert('Password must be at least 6 characters long.');
+      toast.warning('Password must be at least 6 characters long.');
       return;
     }
 
@@ -209,10 +217,10 @@ const AdminUsers = () => {
         newPassword: resetPasswordInput
       });
       setIsResetOpen(false);
-      alert('Password reset successfully!');
+      toast.success('Password reset successfully!');
     } catch (error) {
       console.error('Error resetting password:', error);
-      alert('Failed to reset password. Please try again.');
+      toast.error('Failed to reset password. Please try again.');
     } finally {
       setSubmitLoading(false);
     }
@@ -230,10 +238,11 @@ const AdminUsers = () => {
       await api.put(`/admin/admins/${adminId}/status`, {
         isActive: nextStatus
       });
+      toast.success(`Admin status updated successfully!`);
       fetchAdmins();
     } catch (error) {
       console.error('Error toggling status:', error);
-      alert('Failed to update status. Please try again.');
+      toast.error('Failed to update status. Please try again.');
     }
   };
 
@@ -431,16 +440,25 @@ const AdminUsers = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Email Address *</label>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Email Address (Optional if Mobile set)</label>
                 <input
                   type="email"
                   name="email"
-                  required
                   value={formData.email}
                   onChange={handleFormChange}
                   className="w-full px-3.5 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-medium text-slate-700"
                 />
                 {formErrors.email && <p className="text-red-500 text-xs font-semibold mt-1">{formErrors.email}</p>}
+              </div>
+
+              {/* OR Divider */}
+              <div className="relative my-2 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-100"></div>
+                </div>
+                <span className="relative px-3 bg-white text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  OR
+                </span>
               </div>
 
               <div>
@@ -537,16 +555,25 @@ const AdminUsers = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Email Address *</label>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Email Address (Optional if Mobile set)</label>
                 <input
                   type="email"
                   name="email"
-                  required
                   value={formData.email}
                   onChange={handleFormChange}
                   className="w-full px-3.5 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-medium text-slate-700"
                 />
                 {formErrors.email && <p className="text-red-500 text-xs font-semibold mt-1">{formErrors.email}</p>}
+              </div>
+
+              {/* OR Divider */}
+              <div className="relative my-2 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-100"></div>
+                </div>
+                <span className="relative px-3 bg-white text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  OR
+                </span>
               </div>
 
               <div>
