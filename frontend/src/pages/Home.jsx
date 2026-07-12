@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api, { BACKEND_URL } from '../utils/api';
-import { Search, MapPin, ArrowRight, Compass, Navigation, BookOpen } from 'lucide-react';
+import { Search, MapPin, ArrowRight, Compass, Navigation, BookOpen, RefreshCw, Download } from 'lucide-react';
+import { usePWA } from '../context/PWAContext';
+import OfflineFallback from '../components/OfflineFallback';
+import defaultMosque from '../assets/default_mosque.png';
 
 const Home = () => {
   const navigate = useNavigate();
+  const { isOffline, isInstallable, installApp } = usePWA();
   const [mosques, setMosques] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -15,6 +19,7 @@ const Home = () => {
   const [dates, setDates] = useState({});
   const [hadith, setHadith] = useState(null);
   const [hadithLang, setHadithLang] = useState('hi');
+  const [refreshingHadith, setRefreshingHadith] = useState(false);
   
   // Suggestions states
   const [suggestions, setSuggestions] = useState([]);
@@ -83,13 +88,13 @@ const Home = () => {
   const handleSuggestionClick = (mosque) => {
     setSearch(mosque.mosqueName);
     setShowSuggestions(false);
-    navigate(`/mosques/${mosque._id}`);
+    navigate(`/mosques/${mosque.slug || mosque._id}`);
   };
 
   // Helper to determine the image URL
   const getImageUrl = (imagePath) => {
     if (!imagePath) {
-      return `${BACKEND_URL}/uploads/default_mosque.png`;
+      return defaultMosque;
     }
     if (imagePath.startsWith('http')) {
       return imagePath;
@@ -98,38 +103,43 @@ const Home = () => {
   };
 
 
-useEffect(() => {
-  const fetchPrayerTimes = async () => {
-    try {
-      const res = await fetch(
-        "https://api.aladhan.com/v1/timingsByCity?city=Lucknow&country=India&method=1&school=1"
-      );
-
-      const data = await res.json();
-
-      console.log(data.data.timings);
-      console.log(data.data.date);
-
-      setPrayerTimings(data.data.timings);
-      setDates(data.data.date);
-
-    } catch (error) {
-      console.error(error);
+  const fetchHadith = async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshingHadith(true);
     }
-  };
-
-  const fetchHadith = async () => {
     try {
-      const response = await api.get('/public/hadith-of-the-day');
+      const url = isRefresh ? '/public/hadith-of-the-day?refresh=true' : '/public/hadith-of-the-day';
+      const response = await api.get(url);
       setHadith(response.data);
     } catch (error) {
-      console.error('Error fetching Hadith of the day:', error);
+      console.error('Error fetching Hadith:', error);
+    } finally {
+      if (isRefresh) {
+        setRefreshingHadith(false);
+      }
     }
   };
 
-  fetchPrayerTimes();
-  fetchHadith();
-}, []);
+  useEffect(() => {
+    const fetchPrayerTimes = async () => {
+      try {
+        const res = await fetch(
+          "https://api.aladhan.com/v1/timingsByCity?city=Lucknow&country=India&method=1&school=1"
+        );
+
+        const data = await res.json();
+
+        setPrayerTimings(data.data.timings);
+        setDates(data.data.date);
+
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    fetchPrayerTimes();
+    fetchHadith();
+  }, []);
 
 const formatTime = (time) => {
   if (!time) return "--:--";
@@ -157,19 +167,29 @@ const formatTime = (time) => {
           <p className="text-teal-100 text-lg max-w-xl mx-auto font-medium mb-6">
             Search across local congregations for verified Jamaat times, community announcements, and directions.
           </p>
-          <div className="flex justify-center gap-4">
+          <div className="flex flex-col sm:flex-row justify-center items-stretch sm:items-center gap-3 sm:gap-4 max-w-xs sm:max-w-none mx-auto">
             <Link
               to="/register-mosque"
-              className="inline-flex items-center bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md active:scale-95 text-sm"
+              className="flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md active:scale-95 text-sm w-full sm:w-auto text-center"
             >
               Register your mosque
             </Link>
             <Link
               to="/nearby-mosques"
-              className="inline-flex items-center bg-teal-900/60 hover:bg-teal-900/80 text-white border border-teal-500/35 backdrop-blur-sm px-6 py-3 rounded-xl font-bold transition-all shadow-md active:scale-95 text-sm"
+              className="flex items-center justify-center bg-teal-900/60 hover:bg-teal-900/80 text-white border border-teal-500/35 backdrop-blur-sm px-6 py-3 rounded-xl font-bold transition-all shadow-md active:scale-95 text-sm w-full sm:w-auto text-center"
             >
               Find Mosque Nearby
             </Link>
+            {isInstallable && (
+              <button
+                type="button"
+                onClick={installApp}
+                className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md active:scale-95 text-sm w-full sm:w-auto text-center"
+              >
+                <Download className="h-4 w-4" />
+                Download App
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -283,6 +303,22 @@ const formatTime = (time) => {
                 </div>
               ))}
             </div>
+
+            {/* Disclaimer / Safety Margin Warning */}
+            <div className="mt-6 pt-4 border-t border-slate-100 flex flex-col gap-2 text-xs sm:text-sm text-slate-500 font-medium">
+              <div className="flex items-start gap-2">
+                <span className="bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider shrink-0 mt-0.5 border border-amber-100">EN</span>
+                <span>Prayer times are approximate. Please observe a 2-minute safety margin before Salah.</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider shrink-0 mt-0.5 border border-amber-100">HI</span>
+                <span>नमाज़ के समय अनुमानित हैं। कृपया नमाज़ से पहले 2 मिनट का अतिरिक्त समय रखें।</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider shrink-0 mt-0.5 border border-amber-100">UR</span>
+                <span className="font-nastaliq leading-relaxed">نماز کے اوقات تخمینی ہیں۔ براہِ کرم نماز سے پہلے 2 منٹ کا احتیاطی وقفہ ضرور رکھیں۔</span>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -331,16 +367,27 @@ const formatTime = (time) => {
 
               <div className="space-y-4">
                 <p 
-                  className={`text-slate-700 leading-relaxed font-semibold italic text-lg sm:text-xl ${
+                  className={`text-slate-700 leading-relaxed font-semibold italic text-lg sm:text-xl whitespace-pre-line ${
                     hadithLang === 'ur' ? 'text-right font-nastaliq leading-loose' : ''
                   }`}
                   dir={hadithLang === 'ur' ? 'rtl' : 'ltr'}
                 >
                   "{hadith.text[hadithLang]}"
                 </p>
-                <div className="pt-2 flex justify-between items-center text-xs font-bold text-slate-400">
-                  <span>— {hadith.narrator}</span>
-                  <span className="uppercase tracking-wider">Sahih al-Bukhari</span>
+                <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs font-bold text-slate-400">
+                  <div className="flex items-center gap-4">
+                    <span>— {hadith.narrator}</span>
+                    <span className="uppercase tracking-wider">Sahih al-Bukhari</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fetchHadith(true)}
+                    disabled={refreshingHadith}
+                    className="inline-flex items-center gap-2 bg-teal-50 hover:bg-teal-100 active:scale-95 text-teal-800 px-4 py-2 rounded-xl transition-all shadow-sm border border-teal-100 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${refreshingHadith ? 'animate-spin' : ''}`} />
+                    Get New Hadith
+                  </button>
                 </div>
               </div>
             </div>
@@ -365,6 +412,12 @@ const formatTime = (time) => {
               </div>
             ))}
           </div>
+        ) : isOffline && mosques.length === 0 ? (
+          /* Offline Fallback state */
+          <OfflineFallback 
+            title="Cannot load mosques"
+            message="You are currently offline, and there is no cached mosque list available. Please reconnect to the internet to browse mosques."
+          />
         ) : mosques.length === 0 ? (
           /* Empty Search State */
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-16 text-center max-w-lg mx-auto mt-8">
@@ -390,6 +443,7 @@ const formatTime = (time) => {
                     <img
                       src={getImageUrl(mosque.mosqueImage)}
                       alt={mosque.mosqueName}
+                      onError={(e) => { e.target.src = defaultMosque; }}
                       className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500"
                     />
                     <div className="absolute top-4 right-4 bg-teal-800/95 backdrop-blur-sm text-emerald-400 font-bold text-xs px-3 py-1.5 rounded-full shadow-md">
@@ -429,7 +483,7 @@ const formatTime = (time) => {
                       </a>
 
                       <Link
-                        to={`/mosques/${mosque._id}`}
+                        to={`/mosques/${mosque.slug || mosque._id}`}
                         className="inline-flex items-center space-x-1.5 bg-teal-50 hover:bg-teal-700 text-teal-700 hover:text-white px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200"
                       >
                         <span>View Details</span>

@@ -28,9 +28,13 @@ const PrayerTimingSchema = new mongoose.Schema({
     jamaat: { type: String, default: '--:--' }
   },
   Jumma: {
-    khutbah: { type: String, default: '--:--' },
-    jamaat: { type: String, default: '--:--' }
-  }
+    azan: { type: String, default: '--:--' },
+    khutbah: { type: String, default: '--:--' }
+  },
+  lastUpdatedFajr: { type: Date, default: Date.now },
+  lastUpdatedAsr: { type: Date, default: Date.now },
+  lastUpdatedMaghrib: { type: Date, default: Date.now },
+  lastUpdatedIsha: { type: Date, default: Date.now }
 }, {
   timestamps: true
 });

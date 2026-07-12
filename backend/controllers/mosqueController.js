@@ -149,13 +149,37 @@ const updateMyMosqueTimings = async (req, res) => {
       timings = new PrayerTiming({ mosqueId: req.user.mosqueId });
     }
 
-    // Assign timings from body
-    if (req.body.Fajr) timings.Fajr = { ...timings.Fajr, ...req.body.Fajr };
-    if (req.body.Zuhr) timings.Zuhr = { ...timings.Zuhr, ...req.body.Zuhr };
-    if (req.body.Asr) timings.Asr = { ...timings.Asr, ...req.body.Asr };
-    if (req.body.Maghrib) timings.Maghrib = { ...timings.Maghrib, ...req.body.Maghrib };
-    if (req.body.Isha) timings.Isha = { ...timings.Isha, ...req.body.Isha };
-    if (req.body.Jumma) timings.Jumma = { ...timings.Jumma, ...req.body.Jumma };
+    // Assign timings from body and check if they changed to update the modification timestamp
+    if (req.body.Fajr) {
+      if (req.body.Fajr.azan !== timings.Fajr.azan || req.body.Fajr.jamaat !== timings.Fajr.jamaat) {
+        timings.lastUpdatedFajr = Date.now();
+      }
+      timings.Fajr = { ...timings.Fajr, ...req.body.Fajr };
+    }
+    if (req.body.Zuhr) {
+      timings.Zuhr = { ...timings.Zuhr, ...req.body.Zuhr };
+    }
+    if (req.body.Asr) {
+      if (req.body.Asr.azan !== timings.Asr.azan || req.body.Asr.jamaat !== timings.Asr.jamaat) {
+        timings.lastUpdatedAsr = Date.now();
+      }
+      timings.Asr = { ...timings.Asr, ...req.body.Asr };
+    }
+    if (req.body.Maghrib) {
+      if (req.body.Maghrib.azan !== timings.Maghrib.azan || req.body.Maghrib.jamaat !== timings.Maghrib.jamaat) {
+        timings.lastUpdatedMaghrib = Date.now();
+      }
+      timings.Maghrib = { ...timings.Maghrib, ...req.body.Maghrib };
+    }
+    if (req.body.Isha) {
+      if (req.body.Isha.azan !== timings.Isha.azan || req.body.Isha.jamaat !== timings.Isha.jamaat) {
+        timings.lastUpdatedIsha = Date.now();
+      }
+      timings.Isha = { ...timings.Isha, ...req.body.Isha };
+    }
+    if (req.body.Jumma) {
+      timings.Jumma = { ...timings.Jumma, ...req.body.Jumma };
+    }
 
     const updatedTimings = await timings.save();
     return res.json(updatedTimings);
@@ -235,20 +259,27 @@ const getPublicMosques = async (req, res) => {
   }
 };
 
-// @desc    Get detailed mosque page by ID
+// @desc    Get detailed mosque page by ID or Slug
 // @route   GET /api/public/mosques/:id
 // @access  Public
 const getPublicMosqueDetails = async (req, res) => {
   try {
     const { id } = req.params;
-    const mosque = await Mosque.findById(id);
+    const mongoose = require('mongoose');
+    let mosque;
+
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      mosque = await Mosque.findById(id);
+    } else {
+      mosque = await Mosque.findOne({ slug: id });
+    }
 
     if (!mosque) {
       return res.status(404).json({ message: 'Mosque not found' });
     }
 
-    const timings = await PrayerTiming.findOne({ mosqueId: id });
-    const announcements = await Announcement.find({ mosqueId: id }).sort({ createdAt: -1 });
+    const timings = await PrayerTiming.findOne({ mosqueId: mosque._id });
+    const announcements = await Announcement.find({ mosqueId: mosque._id }).sort({ createdAt: -1 });
 
     return res.json({
       mosque,
@@ -460,18 +491,25 @@ const getHadithOfTheDay = async (req, res) => {
       });
     }
 
+    const { refresh } = req.query;
     const todayStr = new Date().toDateString();
-    if (cachedHadith && cachedDate === todayStr) {
+    if (refresh !== 'true' && cachedHadith && cachedDate === todayStr) {
       return res.json(cachedHadith);
     }
 
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
-    let hash = 0;
-    for (let i = 0; i < dateStr.length; i++) {
-      hash = dateStr.charCodeAt(i) + ((hash << 5) - hash);
+    let index;
+    if (refresh === 'true') {
+      index = Math.floor(Math.random() * totalCount);
+    } else {
+      const today = new Date();
+      const dateStr = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+      let hash = 0;
+      for (let i = 0; i < dateStr.length; i++) {
+        hash = dateStr.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      index = Math.abs(hash) % totalCount;
     }
-    const index = Math.abs(hash) % totalCount;
+
     const selected = await Hadith.findOne().skip(index);
     if (!selected) {
       return res.status(404).json({
@@ -484,9 +522,32 @@ const getHadithOfTheDay = async (req, res) => {
     const narrator = selected.by ? selected.by.trim() : '';
     const englishText = selected.text ? selected.text.trim() : '';
 
-    console.log(`Translating Hadith of the Day (Index: ${index}) to Hindi and Urdu...`);
-    const hindiText = await translateText(englishText, 'hi');
-    const urduText = await translateText(englishText, 'ur');
+    let hindiText = selected.textHindi ? selected.textHindi.trim() : '';
+    let urduText = selected.textUrdu ? selected.textUrdu.trim() : '';
+    let needsSave = false;
+
+    if (!hindiText) {
+      console.log(`Translating Hadith (Index: ${index}) to Hindi...`);
+      hindiText = await translateText(englishText, 'hi');
+      selected.textHindi = hindiText;
+      needsSave = true;
+    }
+
+    if (!urduText) {
+      console.log(`Translating Hadith (Index: ${index}) to Urdu...`);
+      urduText = await translateText(englishText, 'ur');
+      selected.textUrdu = urduText;
+      needsSave = true;
+    }
+
+    if (needsSave) {
+      try {
+        await selected.save();
+        console.log(`Saved translations to database for Hadith: ${reference}`);
+      } catch (saveError) {
+        console.error('Error saving translation cache to database:', saveError.message);
+      }
+    }
 
     const result = {
       reference,
@@ -498,8 +559,10 @@ const getHadithOfTheDay = async (req, res) => {
       }
     };
 
-    cachedHadith = result;
-    cachedDate = todayStr;
+    if (refresh !== 'true') {
+      cachedHadith = result;
+      cachedDate = todayStr;
+    }
 
     return res.json(result);
   } catch (error) {
@@ -508,8 +571,90 @@ const getHadithOfTheDay = async (req, res) => {
   }
 };
 
+// @desc    Create a mosque for the logged-in admin user
+// @route   POST /api/mosque/my-mosque
+// @access  Private (Mosque Admin/Imam/Muazzin)
+const createMyMosque = async (req, res) => {
+  const {
+    mosqueName,
+    address,
+    area,
+    city,
+    state,
+    pincode,
+    googleMapLink,
+    latitude,
+    longitude,
+    aboutMasjid,
+    facilities,
+    contact
+  } = req.body;
+
+  if (!mosqueName || !address || !area || !city || !state || !pincode || !googleMapLink) {
+    return res.status(400).json({ message: 'All basic mosque fields are required' });
+  }
+
+  try {
+    if (req.user.mosqueId) {
+      return res.status(400).json({ message: 'Your account is already assigned to a mosque' });
+    }
+
+    const mosque = new Mosque({
+      mosqueName,
+      address,
+      area,
+      city,
+      state,
+      pincode,
+      googleMapLink,
+      latitude: latitude ? parseFloat(latitude) : null,
+      longitude: longitude ? parseFloat(longitude) : null,
+      aboutMasjid: aboutMasjid || '',
+      facilities: facilities || {},
+      contact: contact || {},
+      createdBy: req.user._id
+    });
+
+    const savedMosque = await mosque.save();
+
+    // Automatically initialize default prayer timings for the new mosque
+    const defaultTimings = new PrayerTiming({
+      mosqueId: savedMosque._id,
+      Fajr: { azan: '05:00', jamaat: '05:30' },
+      Zuhr: { azan: '12:30', jamaat: '01:00' },
+      Asr: { azan: '04:30', jamaat: '05:00' },
+      Maghrib: { azan: '06:45', jamaat: '06:50' },
+      Isha: { azan: '08:15', jamaat: '08:30' },
+      Jumma: { azan: '01:00', khutbah: '01:30' }
+    });
+    await defaultTimings.save();
+
+    // Assign the new mosque's ID to the logged-in user
+    const user = await User.findById(req.user._id);
+    user.mosqueId = savedMosque._id;
+    await user.save();
+
+    return res.status(201).json({
+      message: 'Mosque created and assigned successfully',
+      mosque: savedMosque,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        mobile: user.mobile,
+        role: user.role,
+        mosqueId: user.mosqueId
+      }
+    });
+  } catch (error) {
+    console.error('Create my mosque error:', error);
+    return res.status(500).json({ message: 'Server error creating mosque' });
+  }
+};
+
 module.exports = {
   getMyMosque,
+  createMyMosque,
   updateMyMosque,
   uploadMosqueImage,
   getMyMosqueTimings,

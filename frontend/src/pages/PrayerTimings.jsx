@@ -15,7 +15,7 @@ const PrayerTimings = () => {
     Asr: { azan: '', jamaat: '' },
     Maghrib: { azan: '', jamaat: '' },
     Isha: { azan: '', jamaat: '' },
-    Jumma: { khutbah: '', jamaat: '' }
+    Jumma: { azan: '', khutbah: '' }
   });
   const [mosqueLocation, setMosqueLocation] = useState({ lat: null, lon: null });
 
@@ -32,7 +32,7 @@ const PrayerTimings = () => {
             Asr: { azan: t.Asr?.azan || '', jamaat: t.Asr?.jamaat || '' },
             Maghrib: { azan: t.Maghrib?.azan || '', jamaat: t.Maghrib?.jamaat || '' },
             Isha: { azan: t.Isha?.azan || '', jamaat: t.Isha?.jamaat || '' },
-            Jumma: { khutbah: t.Jumma?.khutbah || '', jamaat: t.Jumma?.jamaat || '' }
+            Jumma: { azan: t.Jumma?.azan || '', khutbah: t.Jumma?.khutbah || '' }
           });
         }
         if (response.data.mosque) {
@@ -88,7 +88,7 @@ const PrayerTimings = () => {
         Asr: { azan: formatTime(prayerTimes.asr), jamaat: formatJamaat(prayerTimes.asr, 20) },
         Maghrib: { azan: formatTime(prayerTimes.maghrib), jamaat: formatJamaat(prayerTimes.maghrib, 10) },
         Isha: { azan: formatTime(prayerTimes.isha), jamaat: formatJamaat(prayerTimes.isha, 20) },
-        Jumma: { khutbah: '01:00 PM', jamaat: '01:30 PM' }
+        Jumma: { azan: '01:00 PM', khutbah: '01:30 PM' }
       });
 
       showAlert('Prayer timings auto-calculated based on mosque location! Please review and save.', 'success');
@@ -185,8 +185,8 @@ const PrayerTimings = () => {
               <thead className="bg-slate-50 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">
                 <tr>
                   <th scope="col" className="px-6 py-4">Prayer Name</th>
-                  <th scope="col" className="px-6 py-4">Azan / Khutbah Time</th>
-                  <th scope="col" className="px-6 py-4">Jamaat Time</th>
+                  <th scope="col" className="px-6 py-4">Azan / Azaan Time</th>
+                  <th scope="col" className="px-6 py-4">Jamaat / Khutbah</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white font-medium text-slate-700 text-sm">
@@ -225,24 +225,24 @@ const PrayerTimings = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-col">
-                      <span className="text-[10px] text-slate-400 font-bold uppercase mb-1">Khutbah Time</span>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase mb-1">Azaan Time</span>
                       <input
                         type="text"
                         placeholder="e.g. 01:00 PM"
-                        value={timings.Jumma?.khutbah}
-                        onChange={(e) => handleTimeChange('Jumma', 'khutbah', e.target.value)}
+                        value={timings.Jumma?.azan}
+                        onChange={(e) => handleTimeChange('Jumma', 'azan', e.target.value)}
                         className="px-3 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-semibold text-slate-700 bg-white w-44"
                       />
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-col">
-                      <span className="text-[10px] text-slate-400 font-bold uppercase mb-1">Jamaat Time</span>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase mb-1">Khutbah</span>
                       <input
                         type="text"
                         placeholder="e.g. 01:30 PM"
-                        value={timings.Jumma?.jamaat}
-                        onChange={(e) => handleTimeChange('Jumma', 'jamaat', e.target.value)}
+                        value={timings.Jumma?.khutbah}
+                        onChange={(e) => handleTimeChange('Jumma', 'khutbah', e.target.value)}
                         className="px-3 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-semibold text-slate-700 bg-white w-44"
                       />
                     </div>

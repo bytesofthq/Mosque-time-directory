@@ -10,8 +10,13 @@ import {
   ExternalLink,
   X,
   PlusCircle,
-  Eye
+  Eye,
+  Clock,
+  Compass,
+  Navigation,
+  Calculator
 } from 'lucide-react';
+import { Coordinates, CalculationMethod, PrayerTimes } from 'adhan';
 
 const AdminMosques = () => {
   const [mosques, setMosques] = useState([]);
@@ -24,10 +29,104 @@ const AdminMosques = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isTimingsModalOpen, setIsTimingsModalOpen] = useState(false);
   
-  // Selected items for edit/delete/preview
+  // Selected items for edit/delete/preview/timings
   const [currentMosque, setCurrentMosque] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+  const [unassignedUsers, setUnassignedUsers] = useState([]);
+  const [selectedMosqueForTimings, setSelectedMosqueForTimings] = useState(null);
+  const [timingsData, setTimingsData] = useState({
+    Fajr: { azan: '', jamaat: '' },
+    Zuhr: { azan: '', jamaat: '' },
+    Asr: { azan: '', jamaat: '' },
+    Maghrib: { azan: '', jamaat: '' },
+    Isha: { azan: '', jamaat: '' },
+    Jumma: { azan: '', khutbah: '' }
+  });
+
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [timingsLoading, setTimingsLoading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [filePreview, setFilePreview] = useState('');
+
+  const fetchUnassignedUsers = async (excludeMosqueId = '') => {
+    try {
+      const response = await api.get('/admin/unassigned-users', {
+        params: { excludeMosqueId }
+      });
+      setUnassignedUsers(response.data);
+    } catch (error) {
+      console.error('Error fetching unassigned users:', error);
+    }
+  };
+
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+
+    setGeoLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude.toFixed(6);
+        const lon = position.coords.longitude.toFixed(6);
+
+        let reverseGeocodeData = {};
+        try {
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=en`);
+          const responseData = await response.json();
+          if (responseData) {
+            const addr = responseData.address || {};
+            
+            let streetAddress = addr.road || addr.street || addr.residential || addr.path || '';
+            if (!streetAddress && responseData.display_name) {
+              const parts = responseData.display_name.split(',');
+              streetAddress = parts[0]?.trim() || '';
+            }
+
+            let areaLocality = addr.suburb || addr.neighbourhood || addr.village || addr.hamlet || addr.town || addr.city_district || '';
+            if (!areaLocality && responseData.display_name) {
+              const parts = responseData.display_name.split(',');
+              areaLocality = parts[1]?.trim() || parts[0]?.trim() || '';
+            }
+
+            reverseGeocodeData = {
+              address: streetAddress,
+              area: areaLocality,
+              city: addr.city || addr.state_district || addr.county || addr.town || '',
+              state: addr.state || '',
+              pincode: addr.postcode || '',
+            };
+          }
+        } catch (error) {
+          console.error("Error fetching reverse geocode data:", error);
+        }
+
+        setFormData(prev => ({
+          ...prev,
+          latitude: lat,
+          longitude: lon,
+          address: reverseGeocodeData.address || prev.address,
+          area: reverseGeocodeData.area || prev.area,
+          city: reverseGeocodeData.city || prev.city,
+          state: reverseGeocodeData.state || prev.state,
+          pincode: reverseGeocodeData.pincode || prev.pincode,
+          googleMapLink: prev.googleMapLink || `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`
+        }));
+
+        setGeoLoading(false);
+        alert('Location details auto-filled successfully!');
+      },
+      (error) => {
+        console.error('Error detecting location:', error);
+        setGeoLoading(false);
+        alert('Failed to detect location. Please enter details manually.');
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  };
   
   // Form states
   const [formData, setFormData] = useState({
@@ -41,6 +140,7 @@ const AdminMosques = () => {
     latitude: '',
     longitude: '',
     aboutMasjid: '',
+    assignedUserId: '',
     contact: { imamName: '', imamMobile: '' },
     facilities: {
       parking: false,
@@ -87,6 +187,7 @@ const AdminMosques = () => {
       latitude: '',
       longitude: '',
       aboutMasjid: '',
+      assignedUserId: '',
       contact: { imamName: '', imamMobile: '' },
       facilities: {
         parking: false,
@@ -98,6 +199,9 @@ const AdminMosques = () => {
       }
     });
     setFormErrors({});
+    setSelectedFile(null);
+    setFilePreview('');
+    fetchUnassignedUsers();
     setIsModalOpen(true);
   };
 
@@ -114,6 +218,7 @@ const AdminMosques = () => {
       latitude: mosque.latitude || '',
       longitude: mosque.longitude || '',
       aboutMasjid: mosque.aboutMasjid || '',
+      assignedUserId: mosque.admin ? mosque.admin._id : '',
       contact: {
         imamName: mosque.contact?.imamName || '',
         imamMobile: mosque.contact?.imamMobile || ''
@@ -128,6 +233,9 @@ const AdminMosques = () => {
       }
     });
     setFormErrors({});
+    setSelectedFile(null);
+    setFilePreview(mosque.mosqueImage || '');
+    fetchUnassignedUsers(mosque._id);
     setIsModalOpen(true);
   };
 
@@ -141,6 +249,101 @@ const AdminMosques = () => {
     setIsPreviewOpen(true);
   };
 
+  const handleOpenTimings = async (mosque) => {
+    setSelectedMosqueForTimings(mosque);
+    setTimingsLoading(true);
+    setIsTimingsModalOpen(true);
+    try {
+      const response = await api.get(`/admin/mosques/${mosque._id}/timings`);
+      if (response.data) {
+        const t = response.data;
+        setTimingsData({
+          Fajr: { azan: t.Fajr?.azan || '', jamaat: t.Fajr?.jamaat || '' },
+          Zuhr: { azan: t.Zuhr?.azan || '', jamaat: t.Zuhr?.jamaat || '' },
+          Asr: { azan: t.Asr?.azan || '', jamaat: t.Asr?.jamaat || '' },
+          Maghrib: { azan: t.Maghrib?.azan || '', jamaat: t.Maghrib?.jamaat || '' },
+          Isha: { azan: t.Isha?.azan || '', jamaat: t.Isha?.jamaat || '' },
+          Jumma: { azan: t.Jumma?.azan || '', khutbah: t.Jumma?.khutbah || '' }
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching mosque timings:', error);
+      // Initialize with empty defaults if none exist
+      setTimingsData({
+        Fajr: { azan: '', jamaat: '' },
+        Zuhr: { azan: '', jamaat: '' },
+        Asr: { azan: '', jamaat: '' },
+        Maghrib: { azan: '', jamaat: '' },
+        Isha: { azan: '', jamaat: '' },
+        Jumma: { azan: '', khutbah: '' }
+      });
+    } finally {
+      setTimingsLoading(false);
+    }
+  };
+
+  const handleTimingChange = (prayer, field, value) => {
+    setTimingsData((prev) => ({
+      ...prev,
+      [prayer]: {
+        ...prev[prayer],
+        [field]: value
+      }
+    }));
+  };
+
+  const handleTimingsSubmit = async (e) => {
+    e.preventDefault();
+    setTimingsLoading(true);
+    try {
+      await api.put(`/admin/mosques/${selectedMosqueForTimings._id}/timings`, timingsData);
+      setIsTimingsModalOpen(false);
+      alert('Prayer timings updated successfully!');
+    } catch (error) {
+      console.error('Error updating mosque timings:', error);
+      alert(error.response?.data?.message || 'Failed to update prayer timings.');
+    } finally {
+      setTimingsLoading(false);
+    }
+  };
+
+  const autoCalculateTimings = () => {
+    if (!selectedMosqueForTimings?.latitude || !selectedMosqueForTimings?.longitude) {
+      alert('Mosque location coordinates are missing. Cannot calculate timings.');
+      return;
+    }
+
+    try {
+      const coordinates = new Coordinates(selectedMosqueForTimings.latitude, selectedMosqueForTimings.longitude);
+      const params = CalculationMethod.MuslimWorldLeague();
+      const date = new Date();
+      const prayerTimes = new PrayerTimes(coordinates, date, params);
+
+      const formatTime = (dateObj) => {
+        return dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      };
+
+      const formatJamaat = (dateObj, addMinutes) => {
+        const jDate = new Date(dateObj.getTime() + addMinutes * 60000);
+        return formatTime(jDate);
+      };
+
+      setTimingsData({
+        Fajr: { azan: formatTime(prayerTimes.fajr), jamaat: formatJamaat(prayerTimes.fajr, 20) },
+        Zuhr: { azan: formatTime(prayerTimes.dhuhr), jamaat: formatJamaat(prayerTimes.dhuhr, 20) },
+        Asr: { azan: formatTime(prayerTimes.asr), jamaat: formatJamaat(prayerTimes.asr, 20) },
+        Maghrib: { azan: formatTime(prayerTimes.maghrib), jamaat: formatJamaat(prayerTimes.maghrib, 10) },
+        Isha: { azan: formatTime(prayerTimes.isha), jamaat: formatJamaat(prayerTimes.isha, 20) },
+        Jumma: { azan: '01:00 PM', khutbah: '01:30 PM' }
+      });
+
+      alert('Prayer timings auto-calculated successfully! Remember to save changes.');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to calculate timings.');
+    }
+  };
+
   const validateForm = () => {
     const errors = {};
     if (!formData.mosqueName.trim()) errors.mosqueName = 'Mosque name is required';
@@ -151,6 +354,14 @@ const AdminMosques = () => {
     if (!formData.pincode.trim()) errors.pincode = 'Pincode is required';
     if (!formData.googleMapLink.trim()) errors.googleMapLink = 'Google Maps link is required';
     return errors;
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      setFilePreview(URL.createObjectURL(file));
+    }
   };
 
   const handleFormChange = (e) => {
@@ -193,13 +404,28 @@ const AdminMosques = () => {
 
     setSubmitLoading(true);
     try {
+      let mosqueId;
       if (currentMosque) {
         // Edit Operation
         await api.put(`/admin/mosques/${currentMosque._id}`, formData);
+        mosqueId = currentMosque._id;
       } else {
         // Create Operation
-        await api.post('/admin/mosques', formData);
+        const response = await api.post('/admin/mosques', formData);
+        mosqueId = response.data._id;
       }
+
+      // If an image file was selected, upload it
+      if (selectedFile) {
+        const uploadData = new FormData();
+        uploadData.append('image', selectedFile);
+        await api.post(`/admin/mosques/${mosqueId}/upload-image`, uploadData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+      }
+
       setIsModalOpen(false);
       fetchMosques();
     } catch (error) {
@@ -299,11 +525,16 @@ const AdminMosques = () => {
                     </td>
                     <td className="px-6 py-4">
                       {mosque.admin ? (
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                          mosque.admin.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
-                        }`}>
-                          {mosque.admin.name} ({mosque.admin.isActive ? 'Active' : 'Deactive'})
-                        </span>
+                        <div className="space-y-1">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                            mosque.admin.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
+                          }`}>
+                            {mosque.admin.name} ({mosque.admin.isActive ? 'Active' : 'Inactive'})
+                          </span>
+                          <span className="block text-[10px] font-bold uppercase text-slate-400">
+                            {mosque.admin.role || 'MOSQUE_ADMIN'}
+                          </span>
+                        </div>
                       ) : (
                         <span className="text-slate-400 text-xs font-bold italic">Unassigned</span>
                       )}
@@ -316,6 +547,13 @@ const AdminMosques = () => {
                           title="View detail summary"
                         >
                           <Eye className="h-4.5 w-4.5" />
+                        </button>
+                        <button
+                          onClick={() => handleOpenTimings(mosque)}
+                          className="p-2 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-800 rounded-lg transition-all"
+                          title="Configure Prayer Timings"
+                        >
+                          <Clock className="h-4.5 w-4.5" />
                         </button>
                         <button
                           onClick={() => handleOpenEdit(mosque)}
@@ -383,7 +621,18 @@ const AdminMosques = () => {
               
               {/* SECTION 1: Basic Details */}
               <div className="space-y-4">
-                <h4 className="text-xs font-extrabold uppercase text-slate-400 tracking-wider">1. Basic Details</h4>
+                <div className="flex justify-between items-center">
+                  <h4 className="text-xs font-extrabold uppercase text-slate-400 tracking-wider">1. Basic Details</h4>
+                  <button
+                    type="button"
+                    onClick={detectLocation}
+                    disabled={geoLoading}
+                    className="bg-teal-700 hover:bg-teal-800 text-white text-[10px] font-extrabold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 active:scale-95 disabled:opacity-50"
+                  >
+                    <Compass className="h-3.5 w-3.5" />
+                    {geoLoading ? 'Detecting Location...' : 'Use Auto Location'}
+                  </button>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-500 mb-1">Mosque Name *</label>
@@ -494,6 +743,31 @@ const AdminMosques = () => {
                     />
                   </div>
                 </div>
+
+                <div className="pt-2">
+                  <label className="block text-xs font-bold text-slate-500 mb-1.5">Mosque Profile Image</label>
+                  <div className="flex items-center space-x-4">
+                    {filePreview && (
+                      <div className="h-16 w-16 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex-shrink-0">
+                        <img 
+                          src={filePreview.startsWith('http') ? filePreview : filePreview} 
+                          alt="Preview" 
+                          className="w-full h-full object-cover" 
+                        />
+                      </div>
+                    )}
+                    <label className="flex-1 flex flex-col items-center justify-center px-4 py-2.5 bg-slate-50 text-slate-600 rounded-xl border border-dashed border-slate-300 cursor-pointer hover:bg-slate-100 transition-colors">
+                      <PlusCircle className="h-5 w-5 text-teal-600 mb-1" />
+                      <span className="text-xs font-bold">Select Mosque Image File</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                </div>
               </div>
 
               {/* SECTION 2: Contact Details */}
@@ -562,6 +836,27 @@ const AdminMosques = () => {
                     placeholder="Provide description regarding historical background, capacities, and general schedules..."
                     className="w-full px-3.5 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-medium text-slate-700"
                   ></textarea>
+                </div>
+              </div>
+
+              {/* SECTION 5: Assigned User */}
+              <div className="space-y-4 pt-4 border-t border-slate-100">
+                <h4 className="text-xs font-extrabold uppercase text-slate-400 tracking-wider">5. Assigned User</h4>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Mosque Admin / Imam / Muazzin</label>
+                  <select
+                    name="assignedUserId"
+                    value={formData.assignedUserId || ''}
+                    onChange={handleFormChange}
+                    className="w-full px-3.5 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-medium text-slate-700 bg-white"
+                  >
+                    <option value="">-- None / Unassigned --</option>
+                    {unassignedUsers.map((u) => (
+                      <option key={u._id} value={u._id}>
+                        {u.name} ({u.role} - {u.email})
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -676,6 +971,137 @@ const AdminMosques = () => {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT PRAYER TIMINGS MODAL */}
+      {isTimingsModalOpen && selectedMosqueForTimings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-100 overflow-hidden my-8 max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="h-16 flex items-center justify-between px-6 bg-teal-800 text-white flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-emerald-400" />
+                <h3 className="font-bold text-lg">
+                  Configure Prayer Timings: {selectedMosqueForTimings.mosqueName}
+                </h3>
+              </div>
+              <button onClick={() => setIsTimingsModalOpen(false)} className="text-teal-200 hover:text-white transition-colors">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Modal Form Scrollable */}
+            <form onSubmit={handleTimingsSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+              
+              {/* Auto calculate timings helper */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-2.5">
+                  <Calculator className="h-5 w-5 text-teal-600" />
+                  <div>
+                    <h5 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Auto-Calculate Times</h5>
+                    <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
+                      Calculate prayer times using mosque geolocation coordinates.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={autoCalculateTimings}
+                  className="bg-teal-700 hover:bg-teal-800 text-white text-xs font-extrabold px-3.5 py-2 rounded-xl shadow-sm transition-all active:scale-95"
+                >
+                  Calculate Now
+                </button>
+              </div>
+
+              {timingsLoading ? (
+                <div className="flex justify-center py-12">
+                  <div className="h-8 w-8 animate-spin rounded-full border-3 border-teal-600 border-t-transparent"></div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {[
+                    { label: 'Fajr', key: 'Fajr', hasAzan: true },
+                    { label: 'Zuhr', key: 'Zuhr', hasAzan: true },
+                    { label: 'Asr', key: 'Asr', hasAzan: true },
+                    { label: 'Maghrib', key: 'Maghrib', hasAzan: true },
+                    { label: 'Isha', key: 'Isha', hasAzan: true }
+                  ].map((p) => (
+                    <div key={p.key} className="bg-slate-50 p-4 rounded-xl border border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
+                      <span className="font-extrabold text-slate-700 text-sm">{p.label}</span>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Azaan Time</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 05:15 AM"
+                          value={timingsData[p.key]?.azan || ''}
+                          onChange={(e) => handleTimingChange(p.key, 'azan', e.target.value)}
+                          className="w-full px-3.5 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-semibold text-slate-700"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Jamaat Time</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 05:45 AM"
+                          value={timingsData[p.key]?.jamaat || ''}
+                          onChange={(e) => handleTimingChange(p.key, 'jamaat', e.target.value)}
+                          className="w-full px-3.5 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-semibold text-slate-700"
+                        />
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100 grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
+                    <span className="font-extrabold text-emerald-900 text-sm">Jumma (Friday)</span>
+                    <div>
+                      <label className="block text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">Azaan Time</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 12:45 PM"
+                        value={timingsData.Jumma?.azan || ''}
+                        onChange={(e) => handleTimingChange('Jumma', 'azan', e.target.value)}
+                        className="w-full px-3.5 py-1.5 rounded-lg border border-emerald-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-semibold text-slate-700"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">Khutbah/Jamaat</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 01:15 PM"
+                        value={timingsData.Jumma?.khutbah || ''}
+                        onChange={(e) => handleTimingChange('Jumma', 'khutbah', e.target.value)}
+                        className="w-full px-3.5 py-1.5 rounded-lg border border-emerald-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-semibold text-slate-700"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Modal Actions footer */}
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-end space-x-3 bg-white flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsTimingsModalOpen(false)}
+                  className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={timingsLoading}
+                  className="px-6 py-2.5 rounded-xl bg-teal-700 text-white font-extrabold text-sm hover:bg-teal-800 shadow-md shadow-teal-700/10 flex items-center justify-center transition-all disabled:opacity-50"
+                >
+                  {timingsLoading ? (
+                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                  ) : (
+                    'Save Timings'
+                  )}
+                </button>
+              </div>
+
+            </form>
           </div>
         </div>
       )}

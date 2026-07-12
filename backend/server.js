@@ -11,6 +11,7 @@ const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const mosqueRoutes = require('./routes/mosqueRoutes');
 const announcementRoutes = require('./routes/announcementRoutes');
+const sitemapRoutes = require('./routes/sitemapRoutes');
 
 const app = express();
 
@@ -19,7 +20,8 @@ const app = express();
 // ==========================================
 const allowedOrigins = [
   'http://localhost:5173',
-  'http://localhost:3000'
+  'http://localhost:3000',
+  'http://localhost:5174'
 ];
 if (process.env.FRONTEND_URL) {
   allowedOrigins.push(process.env.FRONTEND_URL);
@@ -41,6 +43,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api', mosqueRoutes); // handles public searches and /api/mosque/my-mosque
 app.use('/api/announcements', announcementRoutes); // handles mosque & admin announcements
+app.use('/', sitemapRoutes); // Serves /sitemap.xml
 
 // Default route for server health check
 app.get('/', (req, res) => {
@@ -132,7 +135,7 @@ const startServer = async () => {
         const content = fs.readFileSync(hadithJsonPath, 'utf8');
         const volumes = JSON.parse(content);
         let flattened = [];
-        
+
         volumes.forEach(volume => {
           if (volume.books) {
             volume.books.forEach(book => {
@@ -161,7 +164,25 @@ const startServer = async () => {
   } catch (error) {
     console.error(`[Startup] Error during Hadith collection setup: ${error.message}`);
   }
-  
+
+  // Seed mosque slugs if any are missing
+  const seedMosqueSlugs = async () => {
+    try {
+      const Mosque = require('./models/Mosque');
+      const mosques = await Mosque.find({ $or: [{ slug: { $exists: false } }, { slug: '' }, { slug: null }] });
+      if (mosques.length > 0) {
+        console.log(`[Startup] Found ${mosques.length} mosques without slugs. Generating slugs...`);
+        for (const mosque of mosques) {
+          await mosque.save();
+        }
+        console.log(`[Startup] Successfully generated slugs for all mosques.`);
+      }
+    } catch (error) {
+      console.error('[Startup] Error generating mosque slugs:', error);
+    }
+  };
+  await seedMosqueSlugs();
+
   // Seed the admin
   await seedRootAdmin();
 

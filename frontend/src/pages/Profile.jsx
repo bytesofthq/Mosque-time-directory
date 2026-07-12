@@ -54,7 +54,7 @@ const Profile = () => {
 
   const handleProfileSubmit = async (e) => {
     e.preventDefault();
-    if (!profileData.name.trim() || !profileData.email.trim() || !profileData.mobile.trim()) {
+    if (!profileData.name.trim() || !profileData.email.trim()) {
       return showAlert('Please fill in all profile fields.');
     }
 
@@ -169,7 +169,7 @@ const Profile = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Mobile Number</label>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Mobile Number (Optional)</label>
                 <div className="relative rounded-lg shadow-sm">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Phone className="h-4 w-4 text-slate-400" />

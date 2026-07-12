@@ -146,6 +146,17 @@ const Login = () => {
             </div>
           </form>
 
+          {/* Sign Up Option */}
+          <div className="mt-6 text-center text-xs font-semibold text-slate-500">
+            Don't have an account?{' '}
+            <button
+              onClick={() => navigate('/register-mosque')}
+              className="text-teal-600 hover:text-teal-700 font-extrabold"
+            >
+              Register as Mosque Admin
+            </button>
+          </div>
+
           {/* Directory Return Option */}
           <div className="mt-6 text-center">
             <button

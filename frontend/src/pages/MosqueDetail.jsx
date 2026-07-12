@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api, { BACKEND_URL } from '../utils/api';
+import { Helmet } from 'react-helmet';
 import { 
   MapPin, 
   Phone, 
@@ -16,14 +17,43 @@ import {
   Info,
   ImageIcon
 } from 'lucide-react';
+import { usePWA } from '../context/PWAContext';
+import OfflineFallback from '../components/OfflineFallback';
+import defaultMosque from '../assets/default_mosque.png';
+
+const getMosqueNameFromSlug = (slugOrId) => {
+  if (!slugOrId) return 'Mosque Details';
+  const isObjectId = /^[0-9a-fA-F]{24}$/.test(slugOrId);
+  if (isObjectId) {
+    return 'Mosque Details';
+  }
+  return slugOrId
+    .split('-')
+    .filter(Boolean)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
 
 const MosqueDetail = () => {
   const { id } = useParams();
+  const placeholderName = getMosqueNameFromSlug(id);
+  const { isOffline } = usePWA();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const getDaysAgoText = (lastUpdatedDate) => {
+    if (!lastUpdatedDate) return '';
+    const diffTime = Math.abs(new Date() - new Date(lastUpdatedDate));
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return 'Changed today';
+    if (diffDays === 1) return 'Changed 1 day ago';
+    if (diffDays >= 15) return `Not changed since ${diffDays} days`;
+    return `Changed ${diffDays} days ago`;
+  };
+
   useEffect(() => {
+    window.scrollTo(0, 0);
     const fetchMosqueDetails = async () => {
       try {
         const response = await api.get(`/public/mosques/${id}`);
@@ -41,7 +71,7 @@ const MosqueDetail = () => {
 
   const getImageUrl = (imagePath) => {
     if (!imagePath) {
-      return `${BACKEND_URL}/uploads/default_mosque.png`;
+      return defaultMosque;
     }
     if (imagePath.startsWith('http')) {
       return imagePath;
@@ -52,6 +82,9 @@ const MosqueDetail = () => {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50">
+        <Helmet>
+          <title>Salah Directory | {placeholderName}</title>
+        </Helmet>
         <div className="flex flex-col items-center space-y-4">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-teal-600 border-t-transparent"></div>
           <p className="text-slate-500 font-semibold animate-pulse">Loading mosque details...</p>
@@ -61,8 +94,29 @@ const MosqueDetail = () => {
   }
 
   if (error || !data) {
+    if (isOffline) {
+      return (
+        <div className="max-w-xl mx-auto mt-16 p-8 text-center bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center">
+          <Helmet>
+            <title>Mosque Not Found | Salah Directory</title>
+          </Helmet>
+          <OfflineFallback 
+            title="Mosque details offline"
+            message="This mosque's details are not cached on your device. Please reconnect to the internet to load this page."
+          />
+          <Link to="/" className="inline-flex items-center space-x-2 text-slate-500 hover:text-teal-700 font-bold transition-all text-sm mt-4">
+            <ArrowLeft className="h-4 w-4" />
+            <span>Back to Home</span>
+          </Link>
+        </div>
+      );
+    }
+
     return (
       <div className="max-w-xl mx-auto mt-16 p-8 text-center bg-white rounded-2xl shadow-sm border border-slate-100">
+        <Helmet>
+          <title>Mosque Not Found | Salah Directory</title>
+        </Helmet>
         <h3 className="text-xl font-bold text-red-600 mb-2">Error Occurred</h3>
         <p className="text-slate-500 mb-6">{error || 'Mosque not found'}</p>
         <Link to="/" className="inline-flex items-center space-x-2 bg-teal-700 text-white px-5 py-2.5 rounded-xl font-bold transition-all">
@@ -87,11 +141,20 @@ const MosqueDetail = () => {
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-16">
+      <Helmet>
+        <title>Salah Directory | {mosque.mosqueName}</title>
+        <meta
+          name="description"
+          content={`Prayer Timings and Details of ${mosque.mosqueName} in ${mosque.area}, ${mosque.city}`}
+        />
+      </Helmet>
+
       {/* Hero Banner Image */}
       <div className="relative h-96 w-full bg-slate-900 shadow-inner">
         <img
           src={getImageUrl(mosque.mosqueImage)}
           alt={mosque.mosqueName}
+          onError={(e) => { e.target.src = defaultMosque; }}
           className="w-full h-full object-cover opacity-60"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent"></div>
@@ -208,7 +271,12 @@ const MosqueDetail = () => {
                   ].map((prayer) => (
                     <tr key={prayer.key} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap font-bold text-slate-800">
-                        {prayer.name}
+                        <div>{prayer.name}</div>
+                        {['Fajr', 'Asr', 'Maghrib', 'Isha'].includes(prayer.key) && timings[`lastUpdated${prayer.key}`] && (
+                          <span className="block text-[11px] font-normal text-slate-400 mt-0.5">
+                            {getDaysAgoText(timings[`lastUpdated${prayer.key}`])}
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap font-semibold text-teal-700">
                         {timings[prayer.key]?.azan || '--:--'}
@@ -220,18 +288,18 @@ const MosqueDetail = () => {
                   ))}
                   <tr className="bg-emerald-50/30 hover:bg-emerald-50/60 transition-colors font-semibold">
                     <td className="px-6 py-4 whitespace-nowrap font-bold text-emerald-800">
-                      Jumma Khutbah
+                      Jumma Azaan
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap font-semibold text-teal-700" colSpan={2}>
-                      {timings.Jumma?.khutbah || '--:--'}
+                      {timings.Jumma?.azan || '--:--'}
                     </td>
                   </tr>
                   <tr className="bg-emerald-50/60 hover:bg-emerald-50/80 transition-colors font-bold">
                     <td className="px-6 py-4 whitespace-nowrap font-bold text-emerald-900">
-                      Jumma Jamaat
+                      Jumma Khutbah
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-teal-800" colSpan={2}>
-                      {timings.Jumma?.jamaat || '--:--'}
+                      {timings.Jumma?.khutbah || '--:--'}
                     </td>
                   </tr>
                 </tbody>

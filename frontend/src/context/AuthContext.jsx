@@ -42,7 +42,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (formData) => {
     try {
-      const response = await api.post('/auth/register-mosque', formData);
+      const response = await api.post('/auth/register-user', formData);
       return { success: true, message: response.data.message };
     } catch (error) {
       console.error('Registration failed:', error);

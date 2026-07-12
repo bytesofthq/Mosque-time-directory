@@ -55,7 +55,7 @@ const Navbar = () => {
                 to="/register-mosque"
                 className="text-slate-600 hover:text-teal-700 px-3 py-2 rounded-md text-sm font-semibold transition-colors"
               >
-                Register your mosque
+                Register 
               </Link>
             )}
 

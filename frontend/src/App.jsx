@@ -27,60 +27,66 @@ import MyMosqueDetails from './pages/MyMosqueDetails';
 import PrayerTimings from './pages/PrayerTimings';
 import Announcements from './pages/Announcements';
 import Gallery from './pages/Gallery';
-
 // Reusable/Shared Pages
 import Profile from './pages/Profile';
 
+// PWA Context & Widgets
+import { PWAProvider } from './context/PWAContext';
+import { PWAWidgets } from './components/PWAWidgets';
+
 const App = () => {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* ========================================== */}
-          {/* PUBLIC CLIENT PORTAL ROUTES */}
-          {/* ========================================== */}
-          <Route path="/" element={<PublicLayout />}>
-            <Route index element={<Home />} />
-            <Route path="mosques/:id" element={<MosqueDetail />} />
-            <Route path="register-mosque" element={<RegisterMosque />} />
-            <Route path="nearby-mosques" element={<NearbyMosques />} />
-            <Route path="search" element={<SearchResults />} />
-          </Route>
+    <PWAProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* ========================================== */}
+            {/* PUBLIC CLIENT PORTAL ROUTES */}
+            {/* ========================================== */}
+            <Route path="/" element={<PublicLayout />}>
+              <Route index element={<Home />} />
+              <Route path="mosques/:id" element={<MosqueDetail />} />
+              <Route path="register-mosque" element={<RegisterMosque />} />
+              <Route path="nearby-mosques" element={<NearbyMosques />} />
+              <Route path="search" element={<SearchResults />} />
+            </Route>
 
-          {/* ========================================== */}
-          {/* AUTHENTICATION PORTAL */}
-          {/* ========================================== */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/verify-email" element={<VerifyEmail />} />
+            {/* ========================================== */}
+            {/* AUTHENTICATION PORTAL */}
+            {/* ========================================== */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
 
-          {/* ========================================== */}
-          {/* ROOT ADMIN DASHBOARD PANEL */}
-          {/* ========================================== */}
-          <Route path="/admin" element={<DashboardLayout allowedRoles={['ROOT_ADMIN']} />}>
-            <Route index element={<AdminDashboard />} />
-            <Route path="mosques" element={<AdminMosques />} />
-            <Route path="users" element={<AdminUsers />} />
-            <Route path="announcements" element={<AdminAnnouncements />} />
-            <Route path="profile" element={<Profile />} />
-          </Route>
+            {/* ========================================== */}
+            {/* ROOT ADMIN DASHBOARD PANEL */}
+            {/* ========================================== */}
+            <Route path="/admin" element={<DashboardLayout allowedRoles={['ROOT_ADMIN']} />}>
+              <Route index element={<AdminDashboard />} />
+              <Route path="mosques" element={<AdminMosques />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="announcements" element={<AdminAnnouncements />} />
+              <Route path="profile" element={<Profile />} />
+            </Route>
 
-          {/* ========================================== */}
-          {/* MOSQUE ADMIN DASHBOARD PANEL */}
-          {/* ========================================== */}
-          <Route path="/mosque-admin" element={<DashboardLayout allowedRoles={['MOSQUE_ADMIN']} />}>
-            <Route index element={<MosqueDashboard />} />
-            <Route path="my-mosque" element={<MyMosqueDetails />} />
-            <Route path="timings" element={<PrayerTimings />} />
-            <Route path="announcements" element={<Announcements />} />
-            <Route path="gallery" element={<Gallery />} />
-            <Route path="profile" element={<Profile />} />
-          </Route>
+            {/* ========================================== */}
+            {/* MOSQUE ADMIN DASHBOARD PANEL */}
+            {/* ========================================== */}
+            <Route path="/mosque-admin" element={<DashboardLayout allowedRoles={['MOSQUE_ADMIN']} />}>
+              <Route index element={<MosqueDashboard />} />
+              <Route path="my-mosque" element={<MyMosqueDetails />} />
+              <Route path="timings" element={<PrayerTimings />} />
+              <Route path="announcements" element={<Announcements />} />
+              <Route path="gallery" element={<Gallery />} />
+              <Route path="profile" element={<Profile />} />
+            </Route>
 
-          {/* Fallback route */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+            {/* Fallback route */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+          <PWAWidgets />
+        </BrowserRouter>
+      </AuthProvider>
+    </PWAProvider>
   );
 };
 

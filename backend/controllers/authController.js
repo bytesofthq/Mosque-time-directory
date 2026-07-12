@@ -158,7 +158,7 @@ const registerAdminWithMosque = async (req, res) => {
     aboutMasjid
   } = req.body;
 
-  if (!name || !email || !mobile || !password) {
+  if (!name || !email || !password) {
     return res.status(400).json({ message: 'All admin registration fields are required' });
   }
 
@@ -198,7 +198,7 @@ const registerAdminWithMosque = async (req, res) => {
       Asr: { azan: '04:30', jamaat: '05:00' },
       Maghrib: { azan: '06:45', jamaat: '06:50' },
       Isha: { azan: '08:15', jamaat: '08:30' },
-      Jumma: { khutbah: '01:00', jamaat: '01:30' }
+      Jumma: { azan: '01:00', khutbah: '01:30' }
     });
     await defaultTimings.save();
 
@@ -209,7 +209,7 @@ const registerAdminWithMosque = async (req, res) => {
       _id: adminId,
       name,
       email: email.toLowerCase(),
-      mobile,
+      mobile: mobile || '',
       password,
       role: 'MOSQUE_ADMIN',
       mosqueId: savedMosque._id,
@@ -266,11 +266,62 @@ const verifyEmail = async (req, res) => {
   }
 };
 
+// @desc    Register a new user (Imam/Muazzin) without a mosque
+// @route   POST /api/auth/register-user
+// @access  Public
+const registerUser = async (req, res) => {
+  const { name, email, mobile, password } = req.body;
+
+  if (!name || !email || !password) {
+    return res.status(400).json({ message: 'Name, email, and password are required' });
+  }
+
+  try {
+    const emailExists = await User.findOne({ email: email.toLowerCase() });
+    if (emailExists) {
+      return res.status(400).json({ message: 'An account with this email already exists' });
+    }
+
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationTokenExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+
+    const user = new User({
+      name,
+      email: email.toLowerCase(),
+      mobile: mobile || '',
+      password,
+      role: 'MOSQUE_ADMIN',
+      mosqueId: null,
+      isActive: true,
+      isEmailVerified: false,
+      emailVerificationToken: verificationToken,
+      emailVerificationExpires: verificationTokenExpires
+    });
+
+    const savedUser = await user.save();
+
+    // Send verification email via Brevo
+    try {
+      await sendVerificationEmail(savedUser.email, savedUser.name, verificationToken);
+    } catch (emailError) {
+      console.error('Error sending verification email:', emailError);
+    }
+
+    return res.status(201).json({
+      message: 'Registration successful! Please check your email to verify your account before logging in.'
+    });
+  } catch (error) {
+    console.error('User registration error:', error);
+    return res.status(500).json({ message: 'Server error registering user' });
+  }
+};
+
 module.exports = {
   loginUser,
   getUserProfile,
   updateUserProfile,
   changePassword,
   registerAdminWithMosque,
-  verifyEmail
+  verifyEmail,
+  registerUser
 };

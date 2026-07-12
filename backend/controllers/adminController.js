@@ -3,6 +3,7 @@ const Mosque = require('../models/Mosque');
 const PrayerTiming = require('../models/PrayerTiming');
 const Announcement = require('../models/Announcement');
 const bcrypt = require('bcryptjs');
+const { uploadToCloudinary } = require('../utils/cloudinaryHelper');
 
 // @desc    Get dashboard stats for Root Admin
 // @route   GET /api/admin/stats
@@ -40,7 +41,8 @@ const createMosque = async (req, res) => {
     longitude,
     facilities,
     contact,
-    aboutMasjid
+    aboutMasjid,
+    assignedUserId
   } = req.body;
 
   if (!mosqueName || !address || !area || !city || !state || !pincode || !googleMapLink) {
@@ -48,6 +50,17 @@ const createMosque = async (req, res) => {
   }
 
   try {
+    let assignedUser = null;
+    if (assignedUserId) {
+      assignedUser = await User.findById(assignedUserId);
+      if (!assignedUser) {
+        return res.status(404).json({ message: 'Assigned user not found' });
+      }
+      if (assignedUser.mosqueId) {
+        return res.status(400).json({ message: `User ${assignedUser.name} is already assigned to another mosque` });
+      }
+    }
+
     const newMosque = new Mosque({
       mosqueName,
       address,
@@ -74,10 +87,15 @@ const createMosque = async (req, res) => {
       Asr: { azan: '04:30', jamaat: '05:00' },
       Maghrib: { azan: '06:45', jamaat: '06:50' },
       Isha: { azan: '08:15', jamaat: '08:30' },
-      Jumma: { khutbah: '01:00', jamaat: '01:30' }
+      Jumma: { azan: '01:00', khutbah: '01:30' }
     });
 
     await defaultTimings.save();
+
+    if (assignedUser) {
+      assignedUser.mosqueId = savedMosque._id;
+      await assignedUser.save();
+    }
 
     return res.status(201).json(savedMosque);
   } catch (error) {
@@ -119,6 +137,38 @@ const updateMosque = async (req, res) => {
     }
     if (req.body.mosqueImage) {
       mosque.mosqueImage = req.body.mosqueImage;
+    }
+
+    // Handle user assignment
+    if (req.body.assignedUserId !== undefined) {
+      // Find current user assigned to this mosque
+      const currentAssignedUser = await User.findOne({ mosqueId: id, role: { $in: ['MOSQUE_ADMIN', 'IMAM', 'MUAZZIN'] } });
+      
+      if (req.body.assignedUserId === '') {
+        // Unassign current user
+        if (currentAssignedUser) {
+          currentAssignedUser.mosqueId = null;
+          await currentAssignedUser.save();
+        }
+      } else {
+        // Assign to new user
+        const newAssignedUser = await User.findById(req.body.assignedUserId);
+        if (!newAssignedUser) {
+          return res.status(404).json({ message: 'New assigned user not found' });
+        }
+        if (newAssignedUser.mosqueId && newAssignedUser.mosqueId.toString() !== id) {
+          return res.status(400).json({ message: `User ${newAssignedUser.name} is already assigned to another mosque` });
+        }
+        
+        // Remove assignment from old user
+        if (currentAssignedUser && currentAssignedUser._id.toString() !== newAssignedUser._id.toString()) {
+          currentAssignedUser.mosqueId = null;
+          await currentAssignedUser.save();
+        }
+        
+        newAssignedUser.mosqueId = id;
+        await newAssignedUser.save();
+      }
     }
 
     const updatedMosque = await mosque.save();
@@ -184,10 +234,9 @@ const getMosques = async (req, res) => {
       .limit(limit)
       .sort({ createdAt: -1 });
 
-    // Let's attach admin details to each mosque for convenience
     const mosquesWithAdmins = await Promise.all(
       mosques.map(async (mosque) => {
-        const admin = await User.findOne({ mosqueId: mosque._id, role: 'MOSQUE_ADMIN' }).select('name email mobile isActive');
+        const admin = await User.findOne({ mosqueId: mosque._id, role: 'MOSQUE_ADMIN' }).select('name email mobile isActive role');
         return {
           ...mosque.toObject(),
           admin: admin || null
@@ -250,8 +299,8 @@ const getMosqueAdmins = async (req, res) => {
 const createAndAssignAdmin = async (req, res) => {
   const { name, email, mobile, password, mosqueId } = req.body;
 
-  if (!name || !email || !mobile || !password || !mosqueId) {
-    return res.status(400).json({ message: 'All admin fields and mosque assignment are required' });
+  if (!name || !email || !password) {
+    return res.status(400).json({ message: 'Name, email, and password fields are required' });
   }
 
   try {
@@ -261,44 +310,121 @@ const createAndAssignAdmin = async (req, res) => {
       return res.status(400).json({ message: 'An account with this email already exists' });
     }
 
-    // 2. Check if the target mosque exists
-    const mosque = await Mosque.findById(mosqueId);
-    if (!mosque) {
-      return res.status(404).json({ message: 'Target Mosque not found' });
+    // 2. Check mosque details if assigned
+    if (mosqueId) {
+      const mosque = await Mosque.findById(mosqueId);
+      if (!mosque) {
+        return res.status(404).json({ message: 'Target Mosque not found' });
+      }
+
+      // Check if the mosque already has an admin
+      const existingAdmin = await User.findOne({ mosqueId, role: 'MOSQUE_ADMIN' });
+      if (existingAdmin) {
+        return res.status(400).json({ message: `This mosque already has an admin assigned: ${existingAdmin.name}` });
+      }
     }
 
-    // 3. Check if the mosque already has an admin
-    const existingAdmin = await User.findOne({ mosqueId, role: 'MOSQUE_ADMIN' });
-    if (existingAdmin) {
-      return res.status(400).json({ message: `This mosque already has an admin assigned: ${existingAdmin.name}` });
-    }
-
-    // 4. Create new admin
+    // 3. Create new user
     const admin = new User({
       name,
       email: email.toLowerCase(),
-      mobile,
+      mobile: mobile || '',
       password, // Pre-save hook hashes this
       role: 'MOSQUE_ADMIN',
-      mosqueId,
+      mosqueId: mosqueId || null,
       isActive: true
     });
 
     const savedAdmin = await admin.save();
     return res.status(201).json({
-      message: 'Mosque admin created and assigned successfully',
+      message: 'User created successfully',
       admin: {
         _id: savedAdmin._id,
         name: savedAdmin.name,
         email: savedAdmin.email,
         mobile: savedAdmin.mobile,
+        role: savedAdmin.role,
         mosqueId: savedAdmin.mosqueId,
         isActive: savedAdmin.isActive
       }
     });
   } catch (error) {
-    console.error('Assign admin error:', error);
-    return res.status(500).json({ message: 'Server error creating and assigning admin' });
+    console.error('Create admin error:', error);
+    return res.status(500).json({ message: 'Server error creating user' });
+  }
+};
+
+// @desc    Update a Mosque Admin user details
+// @route   PUT /api/admin/admins/:id
+// @access  Private (Root Admin)
+const updateUser = async (req, res) => {
+  const { id } = req.params;
+  const { name, email, mobile, mosqueId } = req.body;
+
+  try {
+    const user = await User.findById(id);
+    if (!user || user.role !== 'MOSQUE_ADMIN') {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (email && email.toLowerCase() !== user.email) {
+      const emailExists = await User.findOne({ email: email.toLowerCase() });
+      if (emailExists) {
+        return res.status(400).json({ message: 'Email already exists' });
+      }
+      user.email = email.toLowerCase();
+    }
+
+    user.name = name || user.name;
+    user.mobile = mobile !== undefined ? mobile : user.mobile;
+
+    // Handle mosqueId assignment change
+    if (mosqueId !== undefined) {
+      if (mosqueId === '' || mosqueId === null) {
+        user.mosqueId = null;
+      } else {
+        // Check if mosque exists
+        const mosque = await Mosque.findById(mosqueId);
+        if (!mosque) {
+          return res.status(404).json({ message: 'Mosque not found' });
+        }
+        // Check if mosque is already assigned to someone else
+        const existingUser = await User.findOne({ mosqueId, _id: { $ne: id }, role: 'MOSQUE_ADMIN' });
+        if (existingUser) {
+          return res.status(400).json({ message: `This mosque is already assigned to user: ${existingUser.name}` });
+        }
+        user.mosqueId = mosqueId;
+      }
+    }
+
+    const updatedUser = await user.save();
+    return res.json({
+      message: 'User updated successfully',
+      admin: updatedUser
+    });
+  } catch (error) {
+    console.error('Update user error:', error);
+    return res.status(500).json({ message: 'Server error updating user details' });
+  }
+};
+
+// @desc    Delete a Mosque Admin user
+// @route   DELETE /api/admin/admins/:id
+// @access  Private (Root Admin)
+const deleteUser = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const user = await User.findById(id);
+    if (!user || user.role !== 'MOSQUE_ADMIN') {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    await User.findByIdAndDelete(id);
+    return res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    return res.status(500).json({ message: 'Server error deleting user' });
   }
 };
 
@@ -367,6 +493,132 @@ const resetAdminPassword = async (req, res) => {
   }
 };
 
+// @desc    Get unassigned mosque users
+// @route   GET /api/admin/unassigned-users
+// @access  Private (Root Admin)
+const getUnassignedUsers = async (req, res) => {
+  try {
+    const { excludeMosqueId } = req.query;
+
+    const query = {
+      role: 'MOSQUE_ADMIN',
+      $or: [
+        { mosqueId: null },
+        { mosqueId: { $exists: false } }
+      ]
+    };
+
+    if (excludeMosqueId) {
+      query.$or.push({ mosqueId: excludeMosqueId });
+    }
+
+    const users = await User.find(query).select('name email role');
+    return res.json(users);
+  } catch (error) {
+    console.error('Error fetching unassigned users:', error);
+    return res.status(500).json({ message: 'Server error fetching unassigned users' });
+  }
+};
+
+// @desc    Get prayer timings of any mosque
+// @route   GET /api/admin/mosques/:mosqueId/timings
+// @access  Private (Root Admin)
+const getMosqueTimings = async (req, res) => {
+  const { mosqueId } = req.params;
+  try {
+    const timings = await PrayerTiming.findOne({ mosqueId });
+    if (!timings) {
+      return res.status(404).json({ message: 'Timings not found' });
+    }
+    return res.json(timings);
+  } catch (error) {
+    console.error('Get mosque timings error:', error);
+    return res.status(500).json({ message: 'Server error retrieving timings' });
+  }
+};
+
+// @desc    Update prayer timings of any mosque
+// @route   PUT /api/admin/mosques/:mosqueId/timings
+// @access  Private (Root Admin)
+const updateMosqueTimings = async (req, res) => {
+  const { mosqueId } = req.params;
+  try {
+    let timings = await PrayerTiming.findOne({ mosqueId });
+    if (!timings) {
+      timings = new PrayerTiming({ mosqueId });
+    }
+
+    // Assign timings and track modifications for Fajr, Asr, Maghrib, Isha
+    if (req.body.Fajr) {
+      if (req.body.Fajr.azan !== timings.Fajr.azan || req.body.Fajr.jamaat !== timings.Fajr.jamaat) {
+        timings.lastUpdatedFajr = Date.now();
+      }
+      timings.Fajr = { ...timings.Fajr, ...req.body.Fajr };
+    }
+    if (req.body.Zuhr) {
+      timings.Zuhr = { ...timings.Zuhr, ...req.body.Zuhr };
+    }
+    if (req.body.Asr) {
+      if (req.body.Asr.azan !== timings.Asr.azan || req.body.Asr.jamaat !== timings.Asr.jamaat) {
+        timings.lastUpdatedAsr = Date.now();
+      }
+      timings.Asr = { ...timings.Asr, ...req.body.Asr };
+    }
+    if (req.body.Maghrib) {
+      if (req.body.Maghrib.azan !== timings.Maghrib.azan || req.body.Maghrib.jamaat !== timings.Maghrib.jamaat) {
+        timings.lastUpdatedMaghrib = Date.now();
+      }
+      timings.Maghrib = { ...timings.Maghrib, ...req.body.Maghrib };
+    }
+    if (req.body.Isha) {
+      if (req.body.Isha.azan !== timings.Isha.azan || req.body.Isha.jamaat !== timings.Isha.jamaat) {
+        timings.lastUpdatedIsha = Date.now();
+      }
+      timings.Isha = { ...timings.Isha, ...req.body.Isha };
+    }
+    if (req.body.Jumma) {
+      timings.Jumma = { ...timings.Jumma, ...req.body.Jumma };
+    }
+
+    const updatedTimings = await timings.save();
+    return res.json(updatedTimings);
+  } catch (error) {
+    console.error('Update mosque timings error:', error);
+    return res.status(500).json({ message: 'Server error updating timings' });
+  }
+};
+
+// @desc    Upload image for any mosque by Admin
+// @route   POST /api/admin/mosques/:id/upload-image
+// @access  Private (Root Admin)
+const uploadMosqueImageByAdmin = async (req, res) => {
+  const { id } = req.params;
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'Please upload an image file' });
+    }
+
+    const mosque = await Mosque.findById(id);
+    if (!mosque) {
+      return res.status(404).json({ message: 'Mosque not found' });
+    }
+
+    // Upload via helper (handles Cloudinary with local fallback)
+    const imageUrl = await uploadToCloudinary(req.file);
+
+    mosque.mosqueImage = imageUrl;
+    await mosque.save();
+
+    return res.json({
+      message: 'Mosque image uploaded successfully',
+      imageUrl
+    });
+  } catch (error) {
+    console.error('Mosque admin image upload error:', error);
+    return res.status(500).json({ message: 'Server error uploading image' });
+  }
+};
+
 module.exports = {
   getDashboardStats,
   createMosque,
@@ -375,6 +627,12 @@ module.exports = {
   getMosques,
   getMosqueAdmins,
   createAndAssignAdmin,
+  updateUser,
+  deleteUser,
   toggleAdminStatus,
-  resetAdminPassword
+  resetAdminPassword,
+  getUnassignedUsers,
+  getMosqueTimings,
+  updateMosqueTimings,
+  uploadMosqueImageByAdmin
 };

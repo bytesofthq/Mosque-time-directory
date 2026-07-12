@@ -1,14 +1,175 @@
 <!doctype html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/salahLogo.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Discover nearby mosques, real-time namaz/prayer timings, Jumma khutbah schedules, and community announcements in Lucknow and beyond." />
-    <title>Salah Directory - Find Local Masjid & Prayer Timings</title>
-  </head>
-  <body>
+
+    <!-- Favicons -->
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png" />
+    <link rel="icon" type="image/png" sizes="144x144" href="/favicon-144x144.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/android-chrome-192x192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+
+    <!-- Responsive -->
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+
+    <!-- SEO -->
+    <title>Salah Directory | Find Nearby Mosques, Prayer Timings, Jamaat Time & Jummah Timings</title>
+
+    <meta name="description"
+        content="Find nearby mosques, accurate prayer timings, namaz timings, jamaat times, Jummah khutbah schedules, mosque announcements and Islamic community information across Lucknow and India." />
+
+    <meta name="keywords"
+        content="
+        salah directory,
+        mosque,
+        masjid,
+        mosque near me,
+        masjid near me,
+        nearest mosque,
+        nearest masjid,
+        nearby mosque,
+        nearby masjid,
+        find mosque,
+        find masjid,
+        mosque finder,
+        masjid finder,
+        mosque locator,
+        masjid locator,
+        local mosque,
+        local masjid,
+        prayer timings,
+        prayer time,
+        prayer time today,
+        prayer schedule,
+        prayer timetable,
+        namaz timing,
+        namaz timings,
+        namaz time,
+        namaz schedule,
+        salah timing,
+        salah timings,
+        salah time,
+        salat time,
+        salat timings,
+        jamaat timing,
+        jamaat timings,
+        jamaat time,
+        iqamah time,
+        iqamah timings,
+        azan timing,
+        azaan timing,
+        adhan timing,
+        fajr time,
+        fajr prayer time,
+        dhuhr time,
+        zuhr time,
+        asr time,
+        maghrib time,
+        isha time,
+        friday prayer,
+        friday prayer timings,
+        jumma timing,
+        jummah timing,
+        jumma prayer,
+        jummah prayer,
+        khutbah timing,
+        eid prayer,
+        eid namaz,
+        ramadan prayer timings,
+        taraweeh timings,
+        islamic prayer,
+        muslim prayer,
+        islamic community,
+        mosque announcements,
+        mosque events,
+        islamic events,
+        mosque directory,
+        masjid directory,
+        mosque timings,
+        masjid timings,
+        mosque schedule,
+        masjid schedule,
+
+        lucknow prayer timings,
+        lucknow prayer time,
+        lucknow namaz timings,
+        lucknow namaz time,
+        lucknow salah timings,
+        lucknow jamaat timings,
+        lucknow mosque,
+        lucknow masjid,
+        mosque in lucknow,
+        masjid in lucknow,
+        nearest mosque in lucknow,
+        nearest masjid in lucknow,
+        nearby mosque in lucknow,
+        nearby masjid in lucknow,
+        jumma timing lucknow,
+        friday prayer lucknow,
+        mosque finder lucknow,
+        prayer time lucknow today,
+        namaz time lucknow today,
+
+        india prayer timings,
+        india namaz timings,
+        mosque in india,
+        masjid in india,
+        prayer times india,
+        mosque locator india,
+        muslim community india
+        " />
+
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+
+    <link rel="canonical" href="https://salahdirectory.in/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://salahdirectory.in/" />
+    <meta property="og:title"
+        content="Salah Directory | Find Nearby Mosques & Prayer Timings" />
+    <meta property="og:description"
+        content="Find nearby mosques, live prayer timings, Jamaat schedules, Jummah timings and Islamic community information." />
+    <meta property="og:image" content="https://salahdirectory.in/salahLogo.png" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://salahdirectory.in/" />
+    <meta name="twitter:title"
+        content="Salah Directory | Find Nearby Mosques & Prayer Timings" />
+    <meta name="twitter:description"
+        content="Search nearby mosques, accurate namaz timings, Jummah schedules and mosque information." />
+    <meta name="twitter:image"
+        content="https://salahdirectory.in/salahLogo.png" />
+
+    <!-- Theme -->
+    <meta name="theme-color" content="#0F766E" />
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- Apple -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Salah Directory" />
+
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-9F31T1E22K"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-9F31T1E22K');
+    </script>
+
+</head>
+<body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
-  </body>
+</body>
 </html>
