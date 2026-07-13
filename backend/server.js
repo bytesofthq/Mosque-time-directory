@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const connectDB = require('./config/db');
@@ -16,7 +17,7 @@ const sitemapRoutes = require('./routes/sitemapRoutes');
 const app = express();
 
 // ==========================================
-// MIDDLEWARES
+// MIDDLEWARES & COOKIE/CSRF SETUP
 // ==========================================
 const allowedOrigins = [
   'http://localhost:5173',
@@ -32,6 +33,39 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Custom Cookie Parser Middleware
+app.use((req, res, next) => {
+  const rawCookies = req.headers.cookie || '';
+  req.cookies = {};
+  rawCookies.split(';').forEach(cookie => {
+    const parts = cookie.split('=');
+    if (parts.length >= 2) {
+      const name = parts[0].trim();
+      const val = parts.slice(1).join('=').trim();
+      req.cookies[name] = decodeURIComponent(val);
+    }
+  });
+  next();
+});
+
+// Automatic CSRF Cookie Generation
+app.use((req, res, next) => {
+  if (!req.cookies.csrfToken) {
+    const csrfToken = crypto.randomBytes(32).toString('hex');
+    res.cookie('csrfToken', csrfToken, {
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+    });
+    req.cookies.csrfToken = csrfToken;
+  }
+  next();
+});
+
+// CSRF Protection Middleware
+const csrfProtection = require('./middlewares/csrfMiddleware');
+app.use('/api', csrfProtection);
 
 // Serve uploaded images statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -63,16 +97,15 @@ app.use((err, req, res, next) => {
 // ==========================================
 const seedRootAdmin = async () => {
   try {
-    const adminExists = await User.findOne({ email: 'admin@lucknowmasjid.com' });
+    const adminExists = await User.findOne({ username: 'admin' });
     if (!adminExists) {
       const rootAdmin = new User({
         name: 'Root Admin',
+        username: 'admin',
         email: 'admin@lucknowmasjid.com',
-        mobile: '9999999999',
-        password: 'Admin@123', // Pre-save hook in User model will hash this automatically
+        password: 'Admin@123',
         role: 'ROOT_ADMIN',
-        isActive: true,
-        isEmailVerified: true
+        isActive: true
       });
       await rootAdmin.save();
       console.log('====================================');
@@ -82,16 +115,15 @@ const seedRootAdmin = async () => {
       console.log('====================================');
     }
 
-    const newAdminExists = await User.findOne({ email: 'mohammeduzaid2@gmail.com' });
+    const newAdminExists = await User.findOne({ username: 'rootadmin' });
     if (!newAdminExists) {
       const newAdmin = new User({
         name: 'Root Admin',
+        username: 'rootadmin',
         email: 'mohammeduzaid2@gmail.com',
-        mobile: '9876543210',
         password: '123456',
         role: 'ROOT_ADMIN',
-        isActive: true,
-        isEmailVerified: true
+        isActive: true
       });
       await newAdmin.save();
       console.log('====================================');
@@ -122,6 +154,23 @@ const startServer = async () => {
   // Connect to DB first
   await connectDB();
   console.log('MongoDB connected');
+
+  // Drop old unique indexes if they exist
+  try {
+    const mongoose = require('mongoose');
+    await mongoose.connection.db.collection('users').dropIndex('email_1');
+    console.log('[Startup] Successfully dropped old users email_1 index.');
+  } catch (e) {
+    // index does not exist, ignore
+  }
+
+  try {
+    const mongoose = require('mongoose');
+    await mongoose.connection.db.collection('users').dropIndex('mobile_1');
+    console.log('[Startup] Successfully dropped old users mobile_1 index.');
+  } catch (e) {
+    // index does not exist, ignore
+  }
 
   // Log Hadith count in MongoDB (and auto-import if empty)
   try {

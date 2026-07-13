@@ -105,7 +105,8 @@ const AdminMosques = () => {
     latitude: '',
     longitude: '',
     aboutMasjid: '',
-    assignedUserId: '',
+    username: '',
+    password: '',
     contact: { imamName: '', imamMobile: '' },
     facilities: {
       parking: false,
@@ -117,8 +118,57 @@ const AdminMosques = () => {
     }
   });
 
-  const [formErrors, setFormErrors] = useState({});
-  const [submitLoading, setSubmitLoading] = useState(false);
+  const [checkingUsername, setCheckingUsername] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState(null);
+  const [userEditedUsername, setUserEditedUsername] = useState(false);
+
+  // Live username suggestion when mosqueName changes (only on Create mode!)
+  useEffect(() => {
+    if (currentMosque || !formData.mosqueName.trim() || userEditedUsername) return;
+
+    const delayDebounceFn = setTimeout(async () => {
+      try {
+        const response = await api.get('/auth/suggest-username', {
+          params: { mosqueName: formData.mosqueName }
+        });
+        setFormData(prev => ({ ...prev, username: response.data.username }));
+        setUsernameAvailable(true);
+      } catch (err) {
+        console.error('Error suggesting username:', err);
+      }
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [formData.mosqueName, userEditedUsername, currentMosque]);
+
+  // Live username uniqueness validation when username changes
+  useEffect(() => {
+    if (!formData.username.trim()) {
+      setUsernameAvailable(null);
+      return;
+    }
+
+    if (currentMosque && formData.username.toLowerCase().trim() === (currentMosque.username || '').toLowerCase().trim()) {
+      setUsernameAvailable(true);
+      return;
+    }
+
+    const delayDebounceFn = setTimeout(async () => {
+      setCheckingUsername(true);
+      try {
+        const response = await api.get('/auth/validate-username', {
+          params: { username: formData.username }
+        });
+        setUsernameAvailable(response.data.available);
+      } catch (err) {
+        console.error('Error validating username:', err);
+      } finally {
+        setCheckingUsername(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [formData.username, currentMosque]);
 
   const fetchMosques = async () => {
     setLoading(true);
@@ -141,6 +191,8 @@ const AdminMosques = () => {
 
   const handleOpenCreate = () => {
     setCurrentMosque(null);
+    setUserEditedUsername(false);
+    setUsernameAvailable(null);
     setFormData({
       mosqueName: '',
       address: '',
@@ -152,7 +204,8 @@ const AdminMosques = () => {
       latitude: '',
       longitude: '',
       aboutMasjid: '',
-      assignedUserId: '',
+      username: '',
+      password: '',
       contact: { imamName: '', imamMobile: '' },
       facilities: {
         parking: false,
@@ -166,12 +219,13 @@ const AdminMosques = () => {
     setFormErrors({});
     setSelectedFile(null);
     setFilePreview('');
-    fetchUnassignedUsers();
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (mosque) => {
     setCurrentMosque(mosque);
+    setUserEditedUsername(true); // Don't overwrite existing username with suggestion
+    setUsernameAvailable(true);
     setFormData({
       mosqueName: mosque.mosqueName || '',
       address: mosque.address || '',
@@ -183,7 +237,8 @@ const AdminMosques = () => {
       latitude: mosque.latitude || '',
       longitude: mosque.longitude || '',
       aboutMasjid: mosque.aboutMasjid || '',
-      assignedUserId: mosque.admin ? mosque.admin._id : '',
+      username: mosque.username || '',
+      password: '',
       contact: {
         imamName: mosque.contact?.imamName || '',
         imamMobile: mosque.contact?.imamMobile || ''
@@ -200,7 +255,6 @@ const AdminMosques = () => {
     setFormErrors({});
     setSelectedFile(null);
     setFilePreview(mosque.mosqueImage || '');
-    fetchUnassignedUsers(mosque._id);
     setIsModalOpen(true);
   };
 
@@ -309,15 +363,33 @@ const AdminMosques = () => {
     }
   };
 
+  const [formErrors, setFormErrors] = useState({});
+  const [submitLoading, setSubmitLoading] = useState(false);
+
   const validateForm = () => {
     const errors = {};
     if (!formData.mosqueName.trim()) errors.mosqueName = 'Mosque name is required';
-    if (!formData.address.trim()) errors.address = 'Address is required';
     if (!formData.area.trim()) errors.area = 'Area/Neighborhood is required';
     if (!formData.city.trim()) errors.city = 'City is required';
-    if (!formData.state.trim()) errors.state = 'State is required';
-    if (!formData.pincode.trim()) errors.pincode = 'Pincode is required';
-    if (!formData.googleMapLink.trim()) errors.googleMapLink = 'Google Maps link is required';
+    
+    if (!formData.username.trim()) {
+      errors.username = 'Username is required';
+    } else if (usernameAvailable === false) {
+      errors.username = 'Username is already taken';
+    }
+
+    if (!currentMosque) {
+      if (!formData.password) {
+        errors.password = 'Password is required';
+      } else if (formData.password.length < 6) {
+        errors.password = 'Password must be at least 6 characters';
+      }
+    } else {
+      if (formData.password && formData.password.length < 6) {
+        errors.password = 'Password must be at least 6 characters';
+      }
+    }
+
     return errors;
   };
 
@@ -806,24 +878,51 @@ const AdminMosques = () => {
                 </div>
               </div>
 
-              {/* SECTION 5: Assigned User */}
+              {/* SECTION 5: Login Credentials */}
               <div className="space-y-4 pt-4 border-t border-slate-100">
-                <h4 className="text-xs font-extrabold uppercase text-slate-400 tracking-wider">5. Assigned User</h4>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">Mosque Admin / Imam / Muazzin</label>
-                  <select
-                    name="assignedUserId"
-                    value={formData.assignedUserId || ''}
-                    onChange={handleFormChange}
-                    className="w-full px-3.5 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-medium text-slate-700 bg-white"
-                  >
-                    <option value="">-- None / Unassigned --</option>
-                    {unassignedUsers.map((u) => (
-                      <option key={u._id} value={u._id}>
-                        {u.name} ({u.role} - {u.email})
-                      </option>
-                    ))}
-                  </select>
+                <h4 className="text-xs font-extrabold uppercase text-slate-400 tracking-wider">5. Admin Login Credentials</h4>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">Username *</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        name="username"
+                        value={formData.username}
+                        onChange={handleFormChange}
+                        placeholder="e.g. jamamasjid"
+                        className="w-full pr-10 px-3.5 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-medium text-slate-700 bg-white"
+                      />
+                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                        {checkingUsername ? (
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-teal-600 border-t-transparent"></div>
+                        ) : usernameAvailable === true ? (
+                          <span className="text-emerald-600 font-bold text-sm">✓</span>
+                        ) : usernameAvailable === false ? (
+                          <span className="text-rose-600 font-bold text-sm">✗</span>
+                        ) : null}
+                      </div>
+                    </div>
+                    {formErrors.username && <p className="text-rose-600 text-xs font-semibold mt-1">{formErrors.username}</p>}
+                    {usernameAvailable === true && <p className="text-emerald-600 text-[10px] font-bold mt-0.5">Username is unique and available</p>}
+                    {usernameAvailable === false && <p className="text-rose-600 text-[10px] font-bold mt-0.5">Username is already taken</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">
+                      {currentMosque ? 'Password (Leave blank to keep current)' : 'Password *'}
+                    </label>
+                    <input
+                      type="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleFormChange}
+                      placeholder={currentMosque ? '••••••••' : 'Min 6 characters'}
+                      className="w-full px-3.5 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 text-sm font-medium text-slate-700 bg-white"
+                    />
+                    {formErrors.password && <p className="text-rose-600 text-xs font-semibold mt-1">{formErrors.password}</p>}
+                  </div>
                 </div>
               </div>
 

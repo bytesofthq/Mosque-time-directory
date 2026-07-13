@@ -8,22 +8,37 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in on mount
-    const savedUser = localStorage.getItem('user');
-    const savedToken = localStorage.getItem('token');
+    const checkAuth = async () => {
+      const savedUser = localStorage.getItem('user');
+      if (savedUser) {
+        setUser(JSON.parse(savedUser));
+      }
 
-    if (savedUser && savedToken) {
-      setUser(JSON.parse(savedUser));
-    }
-    setLoading(false);
+      try {
+        const response = await api.get('/auth/profile');
+        setUser(response.data);
+        localStorage.setItem('user', JSON.stringify(response.data));
+      } catch (error) {
+        console.error('Session check failed or expired:', error);
+        localStorage.removeItem('user');
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
   }, []);
 
-  const login = async (identifier, password) => {
+  const login = async (username, password, keepMeSignedIn = true) => {
     try {
-      const response = await api.post('/auth/login', { identifier, password });
-      const { token, ...userData } = response.data;
+      const response = await api.post('/auth/login', { 
+        username: username.trim(), 
+        password, 
+        keepMeSignedIn 
+      });
+      const userData = response.data;
 
-      localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
       return { success: true };
@@ -34,15 +49,20 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
+  const logout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch (error) {
+      console.error('Server logout failed:', error);
+    } finally {
+      localStorage.removeItem('user');
+      setUser(null);
+    }
   };
 
   const register = async (formData) => {
     try {
-      const response = await api.post('/auth/register-user', formData);
+      const response = await api.post('/auth/register-mosque', formData);
       return { success: true, message: response.data.message };
     } catch (error) {
       console.error('Registration failed:', error);
@@ -52,8 +72,6 @@ export const AuthProvider = ({ children }) => {
   };
 
   const updateProfileState = (updatedUser) => {
-    // Update local storage and context state
-    const currentToken = localStorage.getItem('token');
     localStorage.setItem('user', JSON.stringify(updatedUser));
     setUser(updatedUser);
   };
@@ -64,3 +82,4 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
+

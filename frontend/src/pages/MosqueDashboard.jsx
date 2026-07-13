@@ -436,7 +436,7 @@ const MosqueDashboard = () => {
           <div className="flex-grow space-y-1">
             <h2 className="text-2xl font-bold text-slate-800">Assalamu Alaikum!</h2>
             <p className="text-slate-500 text-sm font-semibold">
-              You are managing <strong className="text-teal-700 font-bold">{mosque.mosqueName}</strong> ({mosque.area}, {mosque.city}).
+              You are managing <strong className="text-teal-700 font-bold">{mosque.mosqueName}</strong> ({mosque.area}, {mosque.city}) with username: <span className="bg-teal-50 border border-teal-150 px-2 py-0.5 rounded text-xs text-teal-800 font-mono font-bold">{mosque.username}</span>.
             </p>
           </div>
         </div>
@@ -527,6 +527,14 @@ const MosqueDashboard = () => {
                 <div>
                   <span className="text-slate-400 block text-xs font-bold uppercase">Imam Mobile</span>
                   <p className="text-slate-700 font-bold">{mosque.contact?.imamMobile || 'Not Set'}</p>
+                </div>
+              </div>
+
+              <div className="flex items-start space-x-3 pt-3 border-t border-slate-50">
+                <User className="h-5 w-5 text-slate-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <span className="text-slate-400 block text-xs font-bold uppercase">Mosque Username</span>
+                  <p className="text-slate-700 font-bold font-mono">{mosque.username}</p>
                 </div>
               </div>
             </div>

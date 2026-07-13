@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Compass, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Compass, User, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 const Login = () => {
   const { user, login } = useAuth();
   const navigate = useNavigate();
 
-  const [identifier, setIdentifier] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [keepMeSignedIn, setKeepMeSignedIn] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   
   const [loading, setLoading] = useState(false);
@@ -38,12 +39,12 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!identifier.trim() || !password) {
-      return showAlert('Please enter both email/mobile number and password.');
+    if (!username.trim() || !password) {
+      return showAlert('Please enter both username and password.');
     }
 
     setLoading(true);
-    const result = await login(identifier, password);
+    const result = await login(username, password, keepMeSignedIn);
     setLoading(false);
 
     if (!result.success) {
@@ -76,22 +77,22 @@ const Login = () => {
 
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Identifier Field */}
+            {/* Username Field */}
             <div>
-              <label htmlFor="identifier" className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                Email or Mobile Number
+              <label htmlFor="username" className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                Username
               </label>
               <div className="relative rounded-xl shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-slate-400" />
+                  <User className="h-5 w-5 text-slate-400" />
                 </div>
                 <input
-                  id="identifier"
+                  id="username"
                   type="text"
                   required
-                  placeholder="Email address or mobile contact"
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder="Enter your username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   className="block w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:border-transparent text-slate-800 placeholder-slate-400 transition-all font-medium text-sm"
                 />
               </div>
@@ -123,6 +124,20 @@ const Login = () => {
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
+            </div>
+
+            {/* Keep me signed in Checkbox */}
+            <div className="flex items-center">
+              <input
+                id="keepMeSignedIn"
+                type="checkbox"
+                checked={keepMeSignedIn}
+                onChange={(e) => setKeepMeSignedIn(e.target.checked)}
+                className="rounded border-slate-300 text-teal-700 focus:ring-teal-700 h-4.5 w-4.5 cursor-pointer"
+              />
+              <label htmlFor="keepMeSignedIn" className="ml-2 block text-xs font-bold text-slate-500 select-none cursor-pointer">
+                Keep me signed in
+              </label>
             </div>
 
             {/* Submit Button */}

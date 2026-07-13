@@ -7,19 +7,19 @@ const UserSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  username: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+    trim: true
+  },
   email: {
     type: String,
     required: false,
     unique: true,
     sparse: true,
     lowercase: true,
-    trim: true
-  },
-  mobile: {
-    type: String,
-    required: false,
-    unique: true,
-    sparse: true,
     trim: true
   },
   password: {
@@ -39,35 +39,13 @@ const UserSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
-  },
-  isEmailVerified: {
-    type: Boolean,
-    default: false
-  },
-  emailVerificationToken: {
-    type: String,
-    default: null
-  },
-  emailVerificationExpires: {
-    type: Date,
-    default: null
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
   }
+}, {
+  timestamps: true
 });
 
-// Pre-save hook to normalize fields and hash passwords
+// Pre-save hook to hash passwords
 UserSchema.pre('save', async function(next) {
-  // Convert empty strings to undefined to satisfy unique sparse index requirements in MongoDB
-  if (this.email === '') {
-    this.email = undefined;
-  }
-  if (this.mobile === '') {
-    this.mobile = undefined;
-  }
-
   if (!this.isModified('password')) {
     return next();
   }
@@ -86,3 +64,4 @@ UserSchema.methods.comparePassword = async function(candidatePassword) {
 };
 
 module.exports = mongoose.model('User', UserSchema);
+

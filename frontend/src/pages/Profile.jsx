@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import api from '../utils/api';
-import { User, Mail, Phone, Lock, Key, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { User, Lock, Key } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 const Profile = () => {
@@ -10,8 +10,7 @@ const Profile = () => {
   // Profile update state
   const [profileData, setProfileData] = useState({
     name: '',
-    email: '',
-    mobile: ''
+    username: ''
   });
   
   // Password change state
@@ -28,8 +27,7 @@ const Profile = () => {
     if (user) {
       setProfileData({
         name: user.name || '',
-        email: user.email || '',
-        mobile: user.mobile || ''
+        username: user.username || ''
       });
     }
   }, [user]);
@@ -37,8 +35,6 @@ const Profile = () => {
   const showAlert = (message, type = 'error') => {
     if (type === 'success') {
       toast.success(message);
-    } else if (type === 'warning') {
-      toast.warning(message);
     } else {
       toast.error(message);
     }
@@ -56,8 +52,8 @@ const Profile = () => {
 
   const handleProfileSubmit = async (e) => {
     e.preventDefault();
-    if (!profileData.name.trim() || (!profileData.email.trim() && !profileData.mobile.trim())) {
-      return showAlert('Please configure your name, and at least one of Email or Mobile number.');
+    if (!profileData.name.trim() || !profileData.username.trim()) {
+      return showAlert('Full Name and Username are required.');
     }
 
     setLoading(true);
@@ -113,7 +109,6 @@ const Profile = () => {
         <p className="text-slate-500 text-xs font-semibold mt-1">Configure profile details and login passwords.</p>
       </div>
 
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         
         {/* EDIT PROFILE CARD */}
@@ -142,41 +137,15 @@ const Profile = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Email Address (Optional if Mobile provided)</label>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Username</label>
                 <div className="relative rounded-lg shadow-sm">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Mail className="h-4 w-4 text-slate-400" />
-                  </div>
-                  <input
-                    type="email"
-                    name="email"
-                    value={profileData.email}
-                    onChange={handleProfileChange}
-                    className="block w-full pl-9 pr-3 py-2 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 rounded-lg text-sm font-semibold text-slate-700"
-                  />
-                </div>
-              </div>
-
-              {/* OR Divider */}
-              <div className="relative my-2 flex items-center justify-center">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-100"></div>
-                </div>
-                <span className="relative px-3 bg-white text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  OR
-                </span>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Mobile Number (Optional if Email provided)</label>
-                <div className="relative rounded-lg shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Phone className="h-4 w-4 text-slate-400" />
+                    <User className="h-4 w-4 text-slate-400" />
                   </div>
                   <input
                     type="text"
-                    name="mobile"
-                    value={profileData.mobile}
+                    name="username"
+                    value={profileData.username}
                     onChange={handleProfileChange}
                     className="block w-full pl-9 pr-3 py-2 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 rounded-lg text-sm font-semibold text-slate-700"
                   />
@@ -200,13 +169,13 @@ const Profile = () => {
         <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
           <div>
             <h3 className="text-base font-bold text-slate-800 flex items-center gap-2 mb-6">
-              <Lock className="h-4.5 w-4.5 text-teal-600" />
+              <Key className="h-4.5 w-4.5 text-teal-600" />
               <span>Change Password</span>
             </h3>
 
             <form onSubmit={handlePasswordSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Current Password</label>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Current Password *</label>
                 <div className="relative rounded-lg shadow-sm">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Lock className="h-4 w-4 text-slate-400" />
@@ -223,10 +192,10 @@ const Profile = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">New Password</label>
+                <label className="block text-xs font-bold text-slate-500 mb-1">New Password *</label>
                 <div className="relative rounded-lg shadow-sm">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Key className="h-4 w-4 text-slate-400" />
+                    <Lock className="h-4 w-4 text-slate-400" />
                   </div>
                   <input
                     type="password"
@@ -240,17 +209,17 @@ const Profile = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Confirm New Password</label>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Confirm New Password *</label>
                 <div className="relative rounded-lg shadow-sm">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Key className="h-4 w-4 text-slate-400" />
+                    <Lock className="h-4 w-4 text-slate-400" />
                   </div>
                   <input
                     type="password"
                     name="confirmNewPassword"
                     value={passwordData.confirmNewPassword}
                     onChange={handlePasswordChange}
-                    placeholder="Confirm new password"
+                    placeholder="Min 6 characters"
                     className="block w-full pl-9 pr-3 py-2 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-700 rounded-lg text-sm font-semibold text-slate-700"
                   />
                 </div>

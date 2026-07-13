@@ -1,60 +1,94 @@
 const User = require('../models/User');
 const Mosque = require('../models/Mosque');
 const PrayerTiming = require('../models/PrayerTiming');
-const generateToken = require('../utils/generateToken');
+const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { sendVerificationEmail } = require('../utils/emailHelper');
 
-// @desc    Auth user & get token
+// @desc    Auth user & set secure cookies
 // @route   POST /api/auth/login
 // @access  Public
 const loginUser = async (req, res) => {
-  const { email, mobile, identifier, password } = req.body;
-  const loginInput = identifier || email || mobile;
+  const { username, password, keepMeSignedIn } = req.body;
 
-  if (!loginInput || !password) {
-    return res.status(400).json({ message: 'Please provide email or mobile number, and password' });
+  if (!username || !password) {
+    return res.status(400).json({ message: 'Please provide username/email and password' });
   }
 
   try {
-    const user = await User.findOne({
-      $or: [
-        { email: loginInput.toLowerCase() },
-        { mobile: loginInput.trim() }
-      ]
-    });
+    const identifier = username.toLowerCase().trim();
+    let query = {};
+    if (identifier.includes('@')) {
+      query = { email: identifier };
+    } else {
+      query = { username: identifier };
+    }
+    const user = await User.findOne(query);
 
     if (!user) {
-      return res.status(401).json({ message: 'Invalid email/mobile number or password' });
+      return res.status(401).json({ message: 'Invalid username or password' });
     }
 
     if (!user.isActive) {
       return res.status(403).json({ message: 'Your account is deactivated. Please contact root admin.' });
     }
 
-    // Only enforce email verification check if email exists on account and user has not verified it.
-    if (user.email && !user.isEmailVerified) {
-      return res.status(403).json({ message: 'Please verify your email address before logging in. Check your inbox for the verification link.' });
-    }
-
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid email/mobile number or password' });
+      return res.status(401).json({ message: 'Invalid username or password' });
     }
+
+    // Sign the JWT
+    const token = jwt.sign(
+      { 
+        id: user._id, 
+        role: user.role, 
+        keepMeSignedIn: keepMeSignedIn !== false 
+      },
+      process.env.JWT_SECRET || 'supersecretkeyformosquedirectoryapplication123!',
+      { expiresIn: '30d' }
+    );
+
+    // Cookie configuration
+    const expiryDays = process.env.SESSION_EXPIRY_DAYS ? parseInt(process.env.SESSION_EXPIRY_DAYS) : 30;
+    const maxAge = (keepMeSignedIn !== false) ? expiryDays * 24 * 60 * 60 * 1000 : undefined;
+
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: maxAge
+    });
+
+    // Generate and set CSRF cookie
+    const csrfToken = crypto.randomBytes(32).toString('hex');
+    res.cookie('csrfToken', csrfToken, {
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: maxAge
+    });
 
     return res.json({
       _id: user._id,
       name: user.name,
-      email: user.email || '',
-      mobile: user.mobile || '',
+      username: user.username,
+      email: user.email || undefined,
       role: user.role,
       mosqueId: user.mosqueId,
-      token: generateToken(user._id)
+      csrfToken: csrfToken
     });
   } catch (error) {
     console.error('Login error:', error);
     return res.status(500).json({ message: 'Server error during login' });
   }
+};
+
+// @desc    Logout user & clear cookies
+// @route   POST /api/auth/logout
+// @access  Private
+const logoutUser = async (req, res) => {
+  res.clearCookie('token');
+  res.clearCookie('csrfToken');
+  return res.json({ message: 'Logged out successfully' });
 };
 
 // @desc    Get user profile
@@ -66,7 +100,18 @@ const getUserProfile = async (req, res) => {
     if (user) {
       return res.json(user);
     } else {
-      return res.status(404).json({ message: 'User not found' });
+      // If Mosque Admin, check Mosque details
+      const mosque = await Mosque.findById(req.user.mosqueId).select('-password');
+      if (mosque) {
+        return res.json({
+          _id: req.user._id,
+          name: req.user.name,
+          username: req.user.username,
+          role: req.user.role,
+          mosqueId: req.user.mosqueId
+        });
+      }
+      return res.status(404).json({ message: 'User profile not found' });
     }
   } catch (error) {
     console.error('Get profile error:', error);
@@ -78,58 +123,38 @@ const getUserProfile = async (req, res) => {
 // @route   PUT /api/auth/profile
 // @access  Private
 const updateUserProfile = async (req, res) => {
+  const { name, username } = req.body;
+
   try {
     const user = await User.findById(req.user._id);
 
-    if (user) {
-      const email = req.body.email;
-      const mobile = req.body.mobile;
-
-      // Uniqueness check for email
-      if (email !== undefined) {
-        if (email === '') {
-          user.email = undefined;
-        } else if (email.toLowerCase() !== user.email) {
-          const emailExists = await User.findOne({ email: email.toLowerCase() });
-          if (emailExists && emailExists._id.toString() !== user._id.toString()) {
-            return res.status(400).json({ message: 'Email is already in use by another user' });
-          }
-          user.email = email.toLowerCase();
-        }
-      }
-
-      // Uniqueness check for mobile
-      if (mobile !== undefined) {
-        if (mobile === '') {
-          user.mobile = undefined;
-        } else if (mobile.trim() !== user.mobile) {
-          const mobileExists = await User.findOne({ mobile: mobile.trim() });
-          if (mobileExists && mobileExists._id.toString() !== user._id.toString()) {
-            return res.status(400).json({ message: 'Mobile number is already in use by another user' });
-          }
-          user.mobile = mobile.trim();
-        }
-      }
-
-      if (!user.email && !user.mobile) {
-        return res.status(400).json({ message: 'At least one of Email or Mobile number must be configured' });
-      }
-
-      user.name = req.body.name || user.name;
-
-      const updatedUser = await user.save();
-
-      return res.json({
-        _id: updatedUser._id,
-        name: updatedUser.name,
-        email: updatedUser.email || '',
-        mobile: updatedUser.mobile || '',
-        role: updatedUser.role,
-        mosqueId: updatedUser.mosqueId
-      });
-    } else {
+    if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
+
+    if (username && username.toLowerCase().trim() !== user.username) {
+      const usernameExists = await User.findOne({ username: username.toLowerCase().trim() });
+      if (usernameExists) {
+        return res.status(400).json({ message: 'Username is already in use' });
+      }
+      user.username = username.toLowerCase().trim();
+
+      // If user is a Mosque Admin, sync username with Mosque document
+      if (user.role === 'MOSQUE_ADMIN' && user.mosqueId) {
+        await Mosque.findByIdAndUpdate(user.mosqueId, { username: user.username });
+      }
+    }
+
+    user.name = name || user.name;
+    const updatedUser = await user.save();
+
+    return res.json({
+      _id: updatedUser._id,
+      name: updatedUser.name,
+      username: updatedUser.username,
+      role: updatedUser.role,
+      mosqueId: updatedUser.mosqueId
+    });
   } catch (error) {
     console.error('Update profile error:', error);
     return res.status(500).json({ message: 'Server error updating profile' });
@@ -174,8 +199,7 @@ const changePassword = async (req, res) => {
 const registerAdminWithMosque = async (req, res) => {
   const {
     name,
-    email,
-    mobile,
+    username,
     password,
     mosqueName,
     address,
@@ -189,27 +213,14 @@ const registerAdminWithMosque = async (req, res) => {
     aboutMasjid
   } = req.body;
 
-  if (!name || (!email && !mobile) || !password) {
-    return res.status(400).json({ message: 'Name, password, and at least one of Email or Mobile number are required' });
-  }
-
-  if (!mosqueName || !address || !area || !city || !state || !pincode || !googleMapLink) {
-    return res.status(400).json({ message: 'All basic mosque fields are required' });
+  if (!name || !username || !password || !mosqueName || !area || !city) {
+    return res.status(400).json({ message: 'Name, Username, Password, Mosque Name, Area, and City are required' });
   }
 
   try {
-    if (email) {
-      const emailExists = await User.findOne({ email: email.toLowerCase() });
-      if (emailExists) {
-        return res.status(400).json({ message: 'An account with this email already exists' });
-      }
-    }
-
-    if (mobile) {
-      const mobileExists = await User.findOne({ mobile: mobile.trim() });
-      if (mobileExists) {
-        return res.status(400).json({ message: 'An account with this mobile number already exists' });
-      }
+    const usernameExists = await User.findOne({ username: username.toLowerCase().trim() });
+    if (usernameExists) {
+      return res.status(400).json({ message: 'An account with this username already exists' });
     }
 
     const mongoose = require('mongoose');
@@ -217,12 +228,13 @@ const registerAdminWithMosque = async (req, res) => {
 
     const mosque = new Mosque({
       mosqueName,
-      address,
+      username: username.toLowerCase().trim(),
+      address: address || '',
       area,
       city,
-      state,
-      pincode,
-      googleMapLink,
+      state: state || '',
+      pincode: pincode || '',
+      googleMapLink: googleMapLink || '',
       latitude: latitude ? parseFloat(latitude) : null,
       longitude: longitude ? parseFloat(longitude) : null,
       aboutMasjid: aboutMasjid || '',
@@ -242,39 +254,19 @@ const registerAdminWithMosque = async (req, res) => {
     });
     await defaultTimings.save();
 
-    const verificationToken = email ? crypto.randomBytes(32).toString('hex') : null;
-    const verificationTokenExpires = email ? Date.now() + 24 * 60 * 60 * 1000 : null;
-
     const admin = new User({
       _id: adminId,
       name,
-      email: email ? email.toLowerCase() : undefined,
-      mobile: mobile ? mobile.trim() : undefined,
+      username: username.toLowerCase().trim(),
       password,
       role: 'MOSQUE_ADMIN',
       mosqueId: savedMosque._id,
-      isActive: true,
-      isEmailVerified: email ? false : true,
-      emailVerificationToken: verificationToken,
-      emailVerificationExpires: verificationTokenExpires
+      isActive: true
     });
-    const savedAdmin = await admin.save();
-
-    // Send verification email via Brevo if email is provided
-    if (email) {
-      try {
-        await sendVerificationEmail(savedAdmin.email, savedAdmin.name, verificationToken);
-      } catch (emailError) {
-        console.error('Error sending verification email:', emailError);
-      }
-    }
-
-    const successMessage = email
-      ? 'Registration successful! Please check your email to verify your account before logging in.'
-      : 'Registration successful! You can now log in using your mobile number.';
+    await admin.save();
 
     return res.status(201).json({
-      message: successMessage
+      message: 'Registration successful! You can now log in using your credentials.'
     });
   } catch (error) {
     console.error('Public mosque registration error:', error);
@@ -282,98 +274,35 @@ const registerAdminWithMosque = async (req, res) => {
   }
 };
 
-// @desc    Verify user email
-// @route   GET /api/auth/verify-email
-// @access  Public
-const verifyEmail = async (req, res) => {
-  const { token } = req.query;
-
-  if (!token) {
-    return res.status(400).json({ message: 'Verification token is required.' });
-  }
-
-  try {
-    const user = await User.findOne({
-      emailVerificationToken: token,
-      emailVerificationExpires: { $gt: Date.now() }
-    });
-
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid or expired email verification token.' });
-    }
-
-    user.isEmailVerified = true;
-    user.emailVerificationToken = null;
-    user.emailVerificationExpires = null;
-    await user.save();
-
-    return res.json({
-      message: 'Your email has been verified successfully! You can now log in.'
-    });
-  } catch (error) {
-    console.error('Email verification error:', error);
-    return res.status(500).json({ message: 'Server error during email verification.' });
-  }
-};
-
-// @desc    Register a new user (Imam/Muazzin) without a mosque
+// @desc    Register a new user (unassigned Mosque Admin)
 // @route   POST /api/auth/register-user
 // @access  Public
 const registerUser = async (req, res) => {
-  const { name, email, mobile, password } = req.body;
+  const { name, username, password } = req.body;
 
-  if (!name || (!email && !mobile) || !password) {
-    return res.status(400).json({ message: 'Name, password, and at least one of Email or Mobile number are required' });
+  if (!name || !username || !password) {
+    return res.status(400).json({ message: 'Name, Username, and Password are required' });
   }
 
   try {
-    if (email) {
-      const emailExists = await User.findOne({ email: email.toLowerCase() });
-      if (emailExists) {
-        return res.status(400).json({ message: 'An account with this email already exists' });
-      }
+    const usernameExists = await User.findOne({ username: username.toLowerCase().trim() });
+    if (usernameExists) {
+      return res.status(400).json({ message: 'An account with this username already exists' });
     }
-
-    if (mobile) {
-      const mobileExists = await User.findOne({ mobile: mobile.trim() });
-      if (mobileExists) {
-        return res.status(400).json({ message: 'An account with this mobile number already exists' });
-      }
-    }
-
-    const verificationToken = email ? crypto.randomBytes(32).toString('hex') : null;
-    const verificationTokenExpires = email ? Date.now() + 24 * 60 * 60 * 1000 : null;
 
     const user = new User({
       name,
-      email: email ? email.toLowerCase() : undefined,
-      mobile: mobile ? mobile.trim() : undefined,
+      username: username.toLowerCase().trim(),
       password,
       role: 'MOSQUE_ADMIN',
       mosqueId: null,
-      isActive: true,
-      isEmailVerified: email ? false : true,
-      emailVerificationToken: verificationToken,
-      emailVerificationExpires: verificationTokenExpires
+      isActive: true
     });
 
-    const savedUser = await user.save();
-
-    // Send verification email if email is provided
-    if (email) {
-      try {
-        await sendVerificationEmail(savedUser.email, savedUser.name, verificationToken);
-      } catch (emailError) {
-        console.error('Error sending verification email:', emailError);
-      }
-    }
-
-    const successMessage = email
-      ? 'Registration successful! Please check your email to verify your account before logging in.'
-      : 'Registration successful! You can now log in using your mobile number.';
+    await user.save();
 
     return res.status(201).json({
-      message: successMessage
+      message: 'Registration successful! You can now log in.'
     });
   } catch (error) {
     console.error('User registration error:', error);
@@ -381,12 +310,95 @@ const registerUser = async (req, res) => {
   }
 };
 
+// @desc    Suggest a short username from Mosque Name
+// @route   GET /api/auth/suggest-username
+// @access  Public
+const getSuggestedUsername = async (req, res) => {
+  const { mosqueName } = req.query;
+  if (!mosqueName) {
+    return res.status(400).json({ message: 'Mosque name is required' });
+  }
+
+  try {
+    let cleaned = mosqueName.toLowerCase();
+
+    // Direct exact matches first
+    const normalized = cleaned.replace(/[^a-z0-9]/g, '');
+    if (normalized === 'jamamasjid' || normalized === 'jamamasjidchowk') {
+      return res.json({ username: normalized });
+    }
+
+    // Remove unnecessary words
+    const wordsToRemove = ['masjid', 'mosque', 'jami', 'jamia', 'markaz', 'center'];
+    let words = cleaned.split(/\s+/).filter(w => w.length > 0);
+    words = words.filter(word => !wordsToRemove.includes(word.replace(/[^a-z0-9]/g, '')));
+
+    let base = words.join('').replace(/[^a-z0-9]/g, '');
+
+    // Apply preferred conversions
+    if (base === 'alnoor' || base === 'noor' || normalized.includes('alnoor')) {
+      base = 'alnoor';
+    } else if (base === 'bilal' || normalized.includes('bilal')) {
+      base = 'bilal';
+    } else if (base === 'madina' || base === 'madinah' || normalized.includes('madina') || normalized.includes('madinah')) {
+      base = 'madina';
+    } else if (base === 'noorani' || normalized.includes('noorani')) {
+      base = 'noorani';
+    } else if (base === 'jama' || base === 'jamamasjid') {
+      base = 'jamamasjid';
+    }
+
+    if (!base) {
+      base = 'mosque';
+    }
+
+    if (base.length > 15) {
+      base = base.substring(0, 15);
+    }
+
+    // Check unique list
+    let suggested = base;
+    let count = 1;
+    let userExists = await User.findOne({ username: suggested });
+    while (userExists) {
+      count++;
+      suggested = `${base}${count}`;
+      userExists = await User.findOne({ username: suggested });
+    }
+
+    return res.json({ username: suggested });
+  } catch (error) {
+    console.error('Error suggesting username:', error);
+    return res.status(500).json({ message: 'Server error generating username suggestion' });
+  }
+};
+
+// @desc    Validate if a username is unique
+// @route   GET /api/auth/validate-username
+// @access  Public
+const validateUsername = async (req, res) => {
+  const { username } = req.query;
+  if (!username) {
+    return res.status(400).json({ message: 'Username is required' });
+  }
+
+  try {
+    const userExists = await User.findOne({ username: username.toLowerCase().trim() });
+    return res.json({ available: !userExists });
+  } catch (error) {
+    console.error('Error validating username:', error);
+    return res.status(500).json({ message: 'Server error validating username' });
+  }
+};
+
 module.exports = {
   loginUser,
+  logoutUser,
   getUserProfile,
   updateUserProfile,
   changePassword,
   registerAdminWithMosque,
-  verifyEmail,
-  registerUser
+  registerUser,
+  getSuggestedUsername,
+  validateUsername
 };

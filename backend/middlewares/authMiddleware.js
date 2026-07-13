@@ -1,9 +1,12 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Mosque = require('../models/Mosque');
 
 const authenticateUser = async (req, res, next) => {
-  let token;
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+  let token = req.cookies?.token;
+
+  // Fallback to Bearer token in Authorization header for APIs / testing
+  if (!token && req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     token = req.headers.authorization.split(' ')[1];
   }
 
@@ -13,6 +16,7 @@ const authenticateUser = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'supersecretkeyformosquedirectoryapplication123!');
+    
     const user = await User.findById(decoded.id).select('-password');
 
     if (!user) {
@@ -20,10 +24,23 @@ const authenticateUser = async (req, res, next) => {
     }
 
     if (!user.isActive) {
-      return res.status(403).json({ message: 'User account is deactivated. Please contact root admin.' });
+      return res.status(403).json({ message: 'Account is deactivated. Please contact root admin.' });
     }
 
     req.user = user;
+
+    // Automatically renew the session while the user is active (sliding expiration)
+    const keepMeSignedIn = decoded.keepMeSignedIn !== false;
+    const expiryDays = process.env.SESSION_EXPIRY_DAYS ? parseInt(process.env.SESSION_EXPIRY_DAYS) : 30;
+    const maxAge = keepMeSignedIn ? expiryDays * 24 * 60 * 60 * 1000 : undefined;
+
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: maxAge
+    });
+
     next();
   } catch (error) {
     console.error('Auth error:', error);
@@ -52,3 +69,4 @@ module.exports = {
   authorizeRootAdmin,
   authorizeMosqueAdmin
 };
+
