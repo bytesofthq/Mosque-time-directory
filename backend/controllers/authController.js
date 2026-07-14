@@ -51,19 +51,20 @@ const loginUser = async (req, res) => {
     // Cookie configuration
     const expiryDays = process.env.SESSION_EXPIRY_DAYS ? parseInt(process.env.SESSION_EXPIRY_DAYS) : 30;
     const maxAge = (keepMeSignedIn !== false) ? expiryDays * 24 * 60 * 60 * 1000 : undefined;
+    const isProd = process.env.NODE_ENV === 'production';
 
     res.cookie('token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: maxAge
     });
 
     // Generate and set CSRF cookie
     const csrfToken = crypto.randomBytes(32).toString('hex');
     res.cookie('csrfToken', csrfToken, {
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: maxAge
     });
 
@@ -86,8 +87,16 @@ const loginUser = async (req, res) => {
 // @route   POST /api/auth/logout
 // @access  Private
 const logoutUser = async (req, res) => {
-  res.clearCookie('token');
-  res.clearCookie('csrfToken');
+  const isProd = process.env.NODE_ENV === 'production';
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax'
+  });
+  res.clearCookie('csrfToken', {
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax'
+  });
   return res.json({ message: 'Logged out successfully' });
 };
 

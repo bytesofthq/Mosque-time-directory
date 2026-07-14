@@ -33,11 +33,12 @@ const authenticateUser = async (req, res, next) => {
     const keepMeSignedIn = decoded.keepMeSignedIn !== false;
     const expiryDays = process.env.SESSION_EXPIRY_DAYS ? parseInt(process.env.SESSION_EXPIRY_DAYS) : 30;
     const maxAge = keepMeSignedIn ? expiryDays * 24 * 60 * 60 * 1000 : undefined;
+    const isProd = process.env.NODE_ENV === 'production';
 
     res.cookie('token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: maxAge
     });
 

@@ -25,11 +25,14 @@ const allowedOrigins = [
   'http://localhost:5174'
 ];
 if (process.env.FRONTEND_URL) {
-  allowedOrigins.push(process.env.FRONTEND_URL);
+  // Support comma-separated origins
+  const origins = process.env.FRONTEND_URL.split(',').map(o => o.trim());
+  allowedOrigins.push(...origins);
 }
 app.use(cors({
   origin: allowedOrigins,
-  credentials: true
+  credentials: true,
+  exposedHeaders: ['x-csrf-token']
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -51,15 +54,19 @@ app.use((req, res, next) => {
 
 // Automatic CSRF Cookie Generation
 app.use((req, res, next) => {
+  const isProd = process.env.NODE_ENV === 'production';
   if (!req.cookies.csrfToken) {
     const csrfToken = crypto.randomBytes(32).toString('hex');
     res.cookie('csrfToken', csrfToken, {
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
     });
     req.cookies.csrfToken = csrfToken;
   }
+  
+  // Set the CSRF token in a custom header so the frontend can retrieve it cross-origin
+  res.setHeader('x-csrf-token', req.cookies.csrfToken);
   next();
 });
 

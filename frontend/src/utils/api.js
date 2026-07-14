@@ -19,16 +19,41 @@ const api = axios.create({
   withCredentials: true, // Send cookies with requests
 });
 
+// In-memory store for the CSRF token when cookies cannot be read directly (cross-origin production)
+let csrfToken = null;
+
+const extractCsrfToken = (headers) => {
+  if (headers && headers['x-csrf-token']) {
+    csrfToken = headers['x-csrf-token'];
+  }
+};
+
 // Request interceptor to attach CSRF token
 api.interceptors.request.use(
   (config) => {
-    const csrfToken = getCookie('csrfToken');
-    if (csrfToken) {
-      config.headers['X-CSRF-Token'] = csrfToken;
+    // Read from cookies first (works for same-origin, like localhost)
+    // Fall back to in-memory variable (works cross-origin via exposed headers)
+    const activeToken = getCookie('csrfToken') || csrfToken;
+    if (activeToken) {
+      config.headers['X-CSRF-Token'] = activeToken;
     }
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor to extract CSRF token from headers
+api.interceptors.response.use(
+  (response) => {
+    extractCsrfToken(response.headers);
+    return response;
+  },
+  (error) => {
+    if (error.response) {
+      extractCsrfToken(error.response.headers);
+    }
     return Promise.reject(error);
   }
 );
