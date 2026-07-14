@@ -28,9 +28,22 @@ const extractCsrfToken = (headers) => {
   }
 };
 
-// Request interceptor to attach CSRF token
+// Request interceptor to attach Authorization header and CSRF token
 api.interceptors.request.use(
   (config) => {
+    // Attach JWT Authorization Bearer token if it exists in localStorage
+    try {
+      const savedUser = localStorage.getItem('user');
+      if (savedUser) {
+        const user = JSON.parse(savedUser);
+        if (user && user.token) {
+          config.headers['Authorization'] = `Bearer ${user.token}`;
+        }
+      }
+    } catch (e) {
+      console.error('Error reading token from localStorage:', e);
+    }
+
     // Read from cookies first (works for same-origin, like localhost)
     // Fall back to in-memory variable (works cross-origin via exposed headers)
     const activeToken = getCookie('csrfToken') || csrfToken;

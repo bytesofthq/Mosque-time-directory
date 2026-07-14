@@ -16,8 +16,10 @@ export const AuthProvider = ({ children }) => {
 
       try {
         const response = await api.get('/auth/profile');
-        setUser(response.data);
-        localStorage.setItem('user', JSON.stringify(response.data));
+        const existingUser = savedUser ? JSON.parse(savedUser) : {};
+        const updatedData = { ...response.data, token: existingUser.token };
+        setUser(updatedData);
+        localStorage.setItem('user', JSON.stringify(updatedData));
       } catch (error) {
         console.error('Session check failed or expired:', error);
         localStorage.removeItem('user');
@@ -72,8 +74,17 @@ export const AuthProvider = ({ children }) => {
   };
 
   const updateProfileState = (updatedUser) => {
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-    setUser(updatedUser);
+    try {
+      const savedUser = localStorage.getItem('user');
+      const existingUser = savedUser ? JSON.parse(savedUser) : {};
+      const merged = { ...updatedUser, token: existingUser.token };
+      localStorage.setItem('user', JSON.stringify(merged));
+      setUser(merged);
+    } catch (e) {
+      console.error('Error updating profile state:', e);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+    }
   };
 
   return (

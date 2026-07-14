@@ -75,6 +75,7 @@ const loginUser = async (req, res) => {
       email: user.email || undefined,
       role: user.role,
       mosqueId: user.mosqueId,
+      token: token,
       csrfToken: csrfToken
     });
   } catch (error) {
