@@ -16,6 +16,8 @@ import RegisterMosque from './pages/RegisterMosque';
 import NearbyMosques from './pages/NearbyMosques';
 import VerifyEmail from './pages/VerifyEmail';
 import SearchResults from './pages/SearchResults';
+import AdhkarHome from './pages/AdhkarHome';
+import AdhkarCategory from './pages/AdhkarCategory';
 
 // Root Admin Pages
 import AdminDashboard from './pages/AdminDashboard';
@@ -51,6 +53,8 @@ const App = () => {
               <Route path="register-mosque" element={<RegisterMosque />} />
               <Route path="nearby-mosques" element={<NearbyMosques />} />
               <Route path="search" element={<SearchResults />} />
+              <Route path="adhkar" element={<AdhkarHome />} />
+              <Route path="adhkar/:categoryId" element={<AdhkarCategory />} />
             </Route>
 
             {/* ========================================== */}
