@@ -131,7 +131,7 @@ export const HadithCard = ({
           </div>
 
           {/* Language Select Tabs */}
-          <div className="flex bg-slate-100 p-1.5 rounded-2xl self-start sm:self-auto shadow-inner">
+          <div className="flex gap-3 bg-slate-100 p-1.5 rounded-2xl self-start sm:self-auto shadow-inner">
             {[
               { id: 'hi', label: 'हिन्दी (Hindi)' },
               { id: 'ur', label: 'اردو (Urdu)' },

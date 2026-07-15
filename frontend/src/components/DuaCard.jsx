@@ -138,7 +138,7 @@ export const DuaCard = ({ dua }) => {
 
         {/* Language Tabs & Desktop Favorite Button */}
         <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
-          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200/20 shadow-inner">
+          <div className="flex gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200/20 shadow-inner">
             {[
               { id: 'hi', label: 'हिन्दी' },
               { id: 'ur', label: 'اردو' },
