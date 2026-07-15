@@ -34,7 +34,7 @@ export const FeaturedAdhkarCard = ({ category, isRecommended }) => {
       )}
 
       {/* Header Block */}
-      <div className="flex justify-between items-start pt-2">
+      <div className={`flex justify-between items-start ${isRecommended ? 'pt-9' : 'pt-2'}`}>
         <div className="space-y-1">
           <h3 className="text-xl sm:text-2xl font-extrabold tracking-tight group-hover:text-amber-200 transition-colors">
             {category.name}
