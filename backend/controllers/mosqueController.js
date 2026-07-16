@@ -637,6 +637,26 @@ const createMyMosque = async (req, res) => {
   }
 };
 
+// @desc    Get public stats metrics (Counts of Mosques, Hadiths, and Users)
+// @route   GET /api/public/stats
+// @access  Public
+const getPublicStats = async (req, res) => {
+  try {
+    const totalMosques = await Mosque.countDocuments();
+    const totalHadiths = await Hadith.countDocuments();
+    const totalUsers = await User.countDocuments();
+
+    return res.json({
+      totalMosques,
+      totalHadiths,
+      totalUsers
+    });
+  } catch (error) {
+    console.error('Public stats fetch error:', error);
+    return res.status(500).json({ message: 'Server error retrieving statistics' });
+  }
+};
+
 module.exports = {
   getMyMosque,
   createMyMosque,
@@ -649,5 +669,6 @@ module.exports = {
   getNearbyMosques,
   uploadMosqueGallery,
   deleteMosqueGalleryImage,
-  getHadithOfTheDay
+  getHadithOfTheDay,
+  getPublicStats
 };

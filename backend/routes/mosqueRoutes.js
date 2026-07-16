@@ -12,7 +12,8 @@ const {
   getNearbyMosques,
   uploadMosqueGallery,
   deleteMosqueGalleryImage,
-  getHadithOfTheDay
+  getHadithOfTheDay,
+  getPublicStats
 } = require('../controllers/mosqueController');
 const { authenticateUser, authorizeMosqueAdmin } = require('../middlewares/authMiddleware');
 const upload = require('../middlewares/uploadMiddleware');
@@ -24,6 +25,7 @@ router.get('/public/mosques', getPublicMosques);
 router.get('/public/mosques/:id', getPublicMosqueDetails);
 router.get('/public/mosques-nearby', getNearbyMosques);
 router.get('/public/hadith-of-the-day', getHadithOfTheDay);
+router.get('/public/stats', getPublicStats);
 
 // ==========================================
 // PRIVATE MOSQUE ADMIN ROUTES (prefixed with /mosque)

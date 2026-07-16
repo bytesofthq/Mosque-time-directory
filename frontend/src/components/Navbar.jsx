@@ -109,7 +109,7 @@ const Navbar = () => {
 
       {/* Mobile Dropdown Menu */}
       {isOpen && (
-        <div className="md:hidden border-t border-slate-100 bg-white shadow-lg">
+        <div className="md:hidden absolute top-full left-0 w-full border-t border-slate-100 bg-white shadow-lg z-50">
           <div className="px-2 pt-2 pb-4 space-y-1 sm:px-3">
             <Link
               to="/"

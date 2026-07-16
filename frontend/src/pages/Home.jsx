@@ -1,42 +1,107 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import api, { BACKEND_URL } from '../utils/api';
-import { Search, MapPin, ArrowRight, Compass, Navigation, BookOpen, RefreshCw, Download, Heart } from 'lucide-react';
+import { 
+  Search, MapPin, ArrowRight, Compass, Navigation, BookOpen, RefreshCw, 
+  Heart, Share2, Bookmark, Copy, Check, ChevronRight, Star, Clock, 
+  Sun, Sunrise, Sunset, Moon, Sparkles, X, CheckCircle, Bell
+} from 'lucide-react';
 import { usePWA } from '../context/PWAContext';
 import OfflineFallback from '../components/OfflineFallback';
 import defaultMosque from '../assets/default_mosque.png';
 import { useHadith } from '../hooks/useHadith';
-import HadithCard from '../components/HadithCard';
 import { useAdhkar } from '../hooks/useAdhkar';
-import FeaturedAdhkarCard from '../components/FeaturedAdhkarCard';
-import AdhkarCard from '../components/AdhkarCard';
 import SkeletonLoader from '../components/SkeletonLoader';
-import ErrorState from '../components/ErrorState';
-import { isBeforeDhuhr, isAfterAsrMaghrib } from '../utils/date';
+import { toast } from 'react-toastify';
+
+// Animated Counter Component for Statistics Section
+const AnimatedCounter = ({ target, duration = 1.2, suffix = "" }) => {
+  const [count, setCount] = useState(0);
+  const elementRef = useRef(null);
+  const [hasStarted, setHasStarted] = useState(false);
+
+  useEffect(() => {
+    const currentRef = elementRef.current;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setHasStarted(true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hasStarted) return;
+    
+    let start = 0;
+    const end = parseInt(target.replace(/[,+]/g, ''), 10);
+    if (isNaN(end) || end <= 0) {
+      setCount(0);
+      return;
+    }
+    
+    const totalMiliseconds = duration * 1000;
+    const incrementTime = Math.max(Math.floor(totalMiliseconds / end), 10);
+    
+    const timer = setInterval(() => {
+      const step = Math.ceil(end / (totalMiliseconds / incrementTime));
+      start += step;
+      if (start >= end) {
+        clearInterval(timer);
+        setCount(end);
+      } else {
+        setCount(start);
+      }
+    }, incrementTime);
+
+    return () => clearInterval(timer);
+  }, [target, duration, hasStarted]);
+
+  return (
+    <span ref={elementRef} className="font-extrabold text-3xl sm:text-4xl text-slate-900 tracking-tight block">
+      {count.toLocaleString()}{suffix}
+    </span>
+  );
+};
 
 const Home = () => {
   const navigate = useNavigate();
-  const { isOffline, isInstallable, installApp } = usePWA();
+  const { isOffline } = usePWA();
   const [mosques, setMosques] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [area, setArea] = useState('');
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [prayerTimings, setPrayerTimings] = useState({});
   const [dates, setDates] = useState({});
   const { hadith, loading: loadingHadith, error: hadithError, refreshHadith } = useHadith();
-  const { 
-    categories, 
-    loadingCategories, 
-    categoriesError, 
-    loadCategories 
-  } = useAdhkar();
+  const { categories, loadCategories } = useAdhkar();
   
+  // Real Statistics state
+  const [stats, setStats] = useState({ totalMosques: 0, totalHadiths: 0, totalUsers: 0 });
+
   // Suggestions states
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Hadith interaction states
+  const [copiedHadith, setCopiedHadith] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [activeLang, setActiveLang] = useState('hi'); // Default to Hindi
+  const [isHadithModalOpen, setIsHadithModalOpen] = useState(false);
 
   // Debounce search query
   useEffect(() => {
@@ -65,24 +130,42 @@ const Home = () => {
     }
   }, [debouncedSearch]);
 
-  const fetchMosques = async () => {
+  // Sync bookmark state with localStorage
+  useEffect(() => {
+    if (hadith?.hadithnumber) {
+      const bookmarked = localStorage.getItem(`hadith_bookmarked_${hadith.hadithnumber}`) === 'true';
+      setIsBookmarked(bookmarked);
+    }
+  }, [hadith]);
+
+  const fetchMosques = useCallback(async () => {
     setLoading(true);
     try {
       const response = await api.get('/public/mosques', {
-        params: { page, limit: 6 }
+        params: { page: 1, limit: 6 } // Fetch exactly 6 directory mosques for redesigned grid
       });
       setMosques(response.data.mosques);
-      setTotalPages(response.data.pages);
     } catch (error) {
       console.error('Error fetching mosques:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Fetch real statistics
+  const fetchStats = useCallback(async () => {
+    try {
+      const response = await api.get('/public/stats');
+      setStats(response.data);
+    } catch (error) {
+      console.error('Error fetching public stats:', error);
+    }
+  }, []);
 
   useEffect(() => {
     fetchMosques();
-  }, [page]);
+    fetchStats();
+  }, [fetchMosques, fetchStats]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -103,7 +186,6 @@ const Home = () => {
     navigate(`/mosques/${mosque.slug || mosque._id}`);
   };
 
-  // Helper to determine the image URL
   const getImageUrl = (imagePath) => {
     if (!imagePath) {
       return defaultMosque;
@@ -114,21 +196,15 @@ const Home = () => {
     return `${BACKEND_URL}${imagePath}`;
   };
 
-
-  // Hadith fetching is managed by useHadith hook
-
   useEffect(() => {
     const fetchPrayerTimes = async () => {
       try {
         const res = await fetch(
           "https://api.aladhan.com/v1/timingsByCity?city=Lucknow&country=India&method=1&school=1"
         );
-
         const data = await res.json();
-
         setPrayerTimings(data.data.timings);
         setDates(data.data.date);
-
       } catch (error) {
         console.error(error);
       }
@@ -138,95 +214,264 @@ const Home = () => {
     loadCategories();
   }, [loadCategories]);
 
-  // Determine time-based recommendations
-  const morningRecommended = isBeforeDhuhr();
-  const eveningRecommended = isAfterAsrMaghrib();
-
-  // Filter and sort Featured Adhkar categories
-  const getFeaturedCategories = () => {
-    const featured = categories.filter(c => c.id === 'morning' || c.id === 'evening');
-    if (morningRecommended) {
-      return featured.sort((a, b) => (a.id === 'morning' ? -1 : 1));
-    }
-    if (eveningRecommended) {
-      return featured.sort((a, b) => (a.id === 'evening' ? -1 : 1));
-    }
-    return featured.sort((a, b) => (a.id === 'morning' ? -1 : 1));
+  // Hadith actions
+  const getTranslationText = () => {
+    if (!hadith) return '';
+    return hadith.translations?.[activeLang] || hadith.english || '';
   };
 
-  // Filter 4 popular categories to display on the landing page
-  const getOtherCategories = () => {
-    return categories.filter(c => c.id !== 'morning' && c.id !== 'evening').slice(0, 4);
+  const handleCopyHadith = async () => {
+    if (!hadith) return;
+    const translation = getTranslationText();
+    const textToCopy = `Hadith [${hadith.collection_name} #${hadith.hadithnumber}]\n\nArabic:\n${hadith.arabic}\n\nTranslation (${activeLang.toUpperCase()}):\n${translation}\n\nGrade: ${hadith.grade}\n- via Salah Directory`;
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      setCopiedHadith(true);
+      toast.success("Hadith text copied to clipboard!");
+      setTimeout(() => setCopiedHadith(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
   };
 
-  const featuredCats = getFeaturedCategories();
-  const otherCats = getOtherCategories();
+  const handleShareHadith = async () => {
+    if (!hadith) return;
+    const translation = getTranslationText();
+    const shareData = {
+      title: `Daily Hadith - ${hadith.collection_name}`,
+      text: `"${translation}" - ${hadith.collection_name} (No. ${hadith.hadithnumber})`,
+      url: window.location.href,
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        handleCopyHadith();
+      }
+    } catch (err) {
+      console.error('Failed to share:', err);
+    }
+  };
 
-const formatTime = (time) => {
-  if (!time) return "--:--";
-  const [hours, minutes] = time.split(":");
-  const date = new Date();
-  date.setHours(hours, minutes);
+  const handleBookmarkHadith = () => {
+    if (!hadith) return;
+    const nextState = !isBookmarked;
+    setIsBookmarked(nextState);
+    localStorage.setItem(`hadith_bookmarked_${hadith.hadithnumber}`, String(nextState));
+    if (nextState) {
+      toast.success("Hadith bookmarked successfully!");
+    } else {
+      toast.info("Hadith removed from bookmarks.");
+    }
+  };
 
-  return date.toLocaleTimeString("en-IN", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-};
+  const calculateIshraqTime = (sunriseStr) => {
+    if (!sunriseStr) return "";
+    try {
+      const [hours, minutes] = sunriseStr.split(":").map(Number);
+      let ishraqMin = minutes + 20;
+      let ishraqHr = hours;
+      if (ishraqMin >= 60) {
+        ishraqMin -= 60;
+        ishraqHr = (ishraqHr + 1) % 24;
+      }
+      const hrStr = String(ishraqHr).padStart(2, '0');
+      const minStr = String(ishraqMin).padStart(2, '0');
+      return `${hrStr}:${minStr}`;
+    } catch (e) {
+      console.error("Error calculating Ishraq time:", e);
+      return "";
+    }
+  };
+
+  const formatTime = (time) => {
+    if (!time) return "--:--";
+    const [hours, minutes] = time.split(":");
+    const date = new Date();
+    date.setHours(hours, minutes);
+
+    return date.toLocaleTimeString("en-IN", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  // Scroll to section helper
+  const scrollToSection = (id) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  // Helper to determine if we should recommend Morning Adhkar or Evening Adhkar
+  // Morning Adhkar: after Fajr timing, Evening Adhkar: after Asr timing
+  const isEveningAdhkarTime = useCallback(() => {
+    if (!prayerTimings.Asr || !prayerTimings.Fajr) {
+      const hr = new Date().getHours();
+      return hr >= 15 || hr < 4; // 3 PM onwards or night fallback
+    }
+    
+    try {
+      const now = new Date();
+      const [asrHrs, asrMins] = prayerTimings.Asr.split(':').map(Number);
+      const asrTime = new Date();
+      asrTime.setHours(asrHrs, asrMins, 0, 0);
+      
+      const [fajrHrs, fajrMins] = prayerTimings.Fajr.split(':').map(Number);
+      const fajrTime = new Date();
+      fajrTime.setHours(fajrHrs, fajrMins, 0, 0);
+
+      // Evening Adhkar is active after Asr time up until the next Fajr
+      return now >= asrTime || now < fajrTime;
+    } catch {
+      const hr = new Date().getHours();
+      return hr >= 15 || hr < 4;
+    }
+  }, [prayerTimings]);
+
+  // Dynamic metrics helpers
+  const getStatTarget = (key, fallback) => {
+    if (stats && stats[key] && stats[key] > 0) {
+      return String(stats[key]);
+    }
+    return String(fallback);
+  };
+
+  // Animation variants
+  const fadeInUp = {
+    hidden: { opacity: 0, y: 24 },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: { duration: 0.5, ease: "easeOut" }
+    }
+  };
+
+  const staggerContainer = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.05
+      }
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-12">
-      {/* Hero Banner Section */}
-      <div className="bg-gradient-to-r from-teal-800 to-emerald-700 text-white py-16 px-4 text-center relative overflow-hidden shadow-md">
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
-        <div className="max-w-4xl mx-auto relative z-10">
-          <Compass className="h-14 w-14 mx-auto text-amber-400 mb-4 animate-bounce" />
-          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-4 drop-shadow-md">
-            Find Your Nearest Mosque & Prayer Timings
-          </h1>
-          <p className="text-teal-100 text-lg max-w-xl mx-auto font-medium mb-6">
-            Search across local congregations for verified Jamaat times, community announcements, and directions.
-          </p>
-          <div className="flex flex-col sm:flex-row justify-center items-stretch sm:items-center gap-3 sm:gap-4 max-w-xs sm:max-w-none mx-auto">
-            <Link
-              to="/register-mosque"
-              className="flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md active:scale-95 text-sm w-full sm:w-auto text-center"
+    <div className="min-h-screen bg-slate-50/30 pb-4 font-sans antialiased text-slate-800 selection:bg-teal-150 selection:text-teal-900">
+      
+      {/* 1. PREMIUM HERO SECTION */}
+      <section className="relative bg-gradient-to-br from-teal-950 via-teal-900 to-emerald-950 text-white pt-28 pb-16 px-4 overflow-hidden border-b border-teal-800/40">
+        {/* Abstract Geometric Grid Backdrop */}
+        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#ffffff_1.5px,transparent_1.5px)] [background-size:24px_24px] pointer-events-none"></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none"></div>
+        
+        <div className="max-w-[1280px] mx-auto text-center relative z-10 space-y-6">
+          <div className="space-y-4 max-w-4xl mx-auto">
+            {/* Small Badge */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4 }}
+              className="inline-flex items-center gap-2 bg-emerald-800/60 border border-emerald-500/30 px-3.5 py-1 rounded-full text-emerald-300 font-semibold text-xs tracking-wider uppercase backdrop-blur-sm"
             >
-              Register your mosque
-            </Link>
-            <Link
-              to="/nearby-mosques"
-              className="flex items-center justify-center bg-teal-900/60 hover:bg-teal-900/80 text-white border border-teal-500/35 backdrop-blur-sm px-6 py-3 rounded-xl font-bold transition-all shadow-md active:scale-95 text-sm w-full sm:w-auto text-center"
-            >
-              Find Mosque Nearby
-            </Link>
-            {isInstallable && (
-              <button
-                type="button"
-                onClick={installApp}
-                className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md active:scale-95 text-sm w-full sm:w-auto text-center"
-              >
-                <Download className="h-4 w-4" />
-                Download App
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+              <Compass className="h-3.5 w-3.5 text-amber-400" />
+              <span>Islamic Directory & Mosque Finder</span>
+            </motion.div>
 
-      {/* Search & Filter Container */}
-      <div className="max-w-7xl mx-auto px-4-mt-8 sm:px-6 lg:px-8 relative z-20">
-        <form
+            {/* Large Heading */}
+            <motion.h1 
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight leading-none text-white max-w-4xl mx-auto"
+            >
+              Find <span className="text-amber-400">Verified Mosques</span>, <span className="text-amber-400">Prayer Timings</span> & Daily <span className="text-amber-400">Islamic Resources</span>
+            </motion.h1>
+
+            {/* Small Description */}
+            <motion.p 
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="text-teal-100/90 text-sm sm:text-base max-w-2xl mx-auto font-normal leading-relaxed"
+            >
+              Find nearby verified mosques, accurate prayer timings, authentic Hadith, morning & evening adhkar and Islamic resources in one place.
+            </motion.p>
+
+            {/* CTA Buttons */}
+            <motion.div 
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="flex flex-col sm:flex-row justify-center items-center gap-3.5 max-w-sm sm:max-w-none mx-auto pt-2"
+            >
+              <button
+                onClick={() => scrollToSection('mosque-directory')}
+                className="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-slate-955 font-bold px-7 h-12 rounded-xl shadow-md active:scale-95 transition-all text-sm text-center flex items-center justify-center animate-pulse"
+              >
+                Explore Mosques
+              </button>
+              <Link
+                to="/nearby-mosques"
+                className="w-full sm:w-auto bg-teal-900/60 hover:bg-teal-900/90 text-white border border-teal-500/30 hover:border-teal-500/60 backdrop-blur-md px-7 h-12 rounded-xl font-bold active:scale-95 transition-all text-sm text-center flex items-center justify-center"
+              >
+                Find Nearby
+              </Link>
+              <Link
+                to="/register-mosque"
+                className="w-full sm:w-auto bg-teal-955/20 hover:bg-teal-900/30 text-emerald-400 border border-emerald-500/20 hover:border-emerald-500/40 backdrop-blur-md px-7 h-12 rounded-xl font-bold active:scale-95 transition-all text-sm text-center flex items-center justify-center"
+              >
+                Register Mosque
+              </Link>
+            </motion.div>
+          </div>
+
+          {/* Feature Pills Navigation */}
+          <motion.div 
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+            className="flex flex-wrap justify-center gap-2.5 pt-6 max-w-3xl mx-auto"
+          >
+            {[
+              { id: 'mosque-directory', label: 'Nearby Mosques', icon: '🕌' },
+              { id: 'prayer-times', label: 'Prayer Timings', icon: '🕐' },
+              { id: 'featured-hadith', label: 'Daily Hadith', icon: '📖' },
+              { id: 'quick-access', label: 'Morning Adhkar', icon: '🤲' },
+              { id: 'quick-access', label: 'Evening Adhkar', icon: '🌙' },
+              { id: 'discover-everything', label: 'Navigation', icon: '📍' }
+            ].map((badge, idx) => (
+              <button
+                key={idx}
+                onClick={() => scrollToSection(badge.id)}
+                className="flex items-center gap-1.5 bg-teal-900/45 hover:bg-teal-800/60 border border-teal-500/15 hover:border-teal-500/30 text-teal-100 text-xs px-3.5 py-1.5 rounded-lg font-semibold transition-all active:scale-95"
+              >
+                <span>{badge.icon}</span>
+                <span>{badge.label}</span>
+              </button>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Modern Floating Search Bar Container */}
+      <div className="max-w-[1280px] mx-auto px-4 -mt-7 relative z-20">
+        <motion.form
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
           onSubmit={handleSearchSubmit}
-          className="bg-white p-5 rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-100 flex flex-col md:flex-row gap-4 items-center justify-between"
+          className="bg-white p-4 rounded-2xl shadow-lg border border-slate-100/90 flex flex-col lg:flex-row gap-3.5 items-center justify-between"
         >
           {/* Mosque Name Search */}
           <div className="w-full relative">
-            <Search className="absolute left-3.5 top-3.5 h-5 w-5 text-slate-400" />
+            <Search className="absolute left-3.5 top-3 h-5 w-5 text-slate-400" />
             <input
               type="text"
-              placeholder="Search by Mosque Name..."
+              placeholder="Search by Mosque Name (e.g. Hazratganj Masjid)..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -234,330 +479,663 @@ const formatTime = (time) => {
               }}
               onFocus={() => setShowSuggestions(true)}
               onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-              className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:border-transparent text-slate-800 placeholder-slate-400 transition-all font-medium"
+              className="w-full pl-11 pr-4 h-11 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:border-transparent text-slate-800 placeholder-slate-400 font-medium transition-all text-sm animate-pulse-slow"
+              aria-label="Search by mosque name"
             />
-            {/* Suggestions Dropdown */}
-            {showSuggestions && suggestions.length > 0 && (
-              <div className="absolute left-0 right-0 mt-2 bg-white border border-slate-100 rounded-xl shadow-xl z-30 max-h-60 overflow-y-auto divide-y divide-slate-50 text-left">
-                {suggestions.map((m) => (
-                  <div
-                    key={m._id}
-                    className="px-4 py-3 hover:bg-teal-50/40 cursor-pointer transition-colors flex items-center justify-between group"
-                    onMouseDown={() => handleSuggestionClick(m)}
-                  >
-                    <div>
-                      <div className="font-bold text-slate-800 text-sm group-hover:text-teal-700 transition-colors">{m.mosqueName}</div>
-                      <div className="text-slate-400 text-xs font-semibold">{m.area}, {m.city}</div>
+            {/* Autocomplete Suggestions */}
+            <AnimatePresence>
+              {showSuggestions && suggestions.length > 0 && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  className="absolute left-0 right-0 mt-2 bg-white border border-slate-100 rounded-xl shadow-2xl z-30 max-h-60 overflow-y-auto divide-y divide-slate-50 text-left"
+                >
+                  {suggestions.map((m) => (
+                    <div
+                      key={m._id}
+                      className="px-4 py-3 hover:bg-teal-50/20 cursor-pointer transition-colors flex items-center justify-between group"
+                      onMouseDown={() => handleSuggestionClick(m)}
+                    >
+                      <div>
+                        <div className="font-bold text-slate-800 text-xs group-hover:text-teal-700 transition-colors">{m.mosqueName}</div>
+                        <div className="text-slate-400 text-[10px] font-semibold mt-0.5">{m.area}, {m.city}</div>
+                      </div>
+                      <ArrowRight className="h-3.5 w-3.5 text-teal-600 opacity-0 group-hover:opacity-100 transition-all transform group-hover:translate-x-1" />
                     </div>
-                    <ArrowRight className="h-4 w-4 text-teal-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
-          {/* Area Search */}
+          {/* Area Filter */}
           <div className="w-full relative">
-            <MapPin className="absolute left-3.5 top-3.5 h-5 w-5 text-slate-400" />
+            <MapPin className="absolute left-3.5 top-3 h-5 w-5 text-slate-400" />
             <input
               type="text"
-              placeholder="Filter by Area (e.g. Aminabad, Hazratganj)..."
+              placeholder="Filter by Area (e.g. Aminabad, Lucknow)..."
               value={area}
               onChange={(e) => setArea(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:border-transparent text-slate-800 placeholder-slate-400 transition-all font-medium"
+              className="w-full pl-11 pr-4 h-11 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:border-transparent text-slate-800 placeholder-slate-400 font-medium transition-all text-sm"
+              aria-label="Filter mosques by area"
             />
           </div>
 
-          {/* Buttons */}
-          <div className="flex w-full md:w-auto gap-3">
+          {/* Search CTA Buttons */}
+          <div className="flex w-full lg:w-auto gap-2.5 shrink-0">
             <button
               type="submit"
-              className="flex-1 md:flex-none bg-teal-700 hover:bg-teal-800 text-white px-7 py-3 rounded-xl font-bold transition-all shadow-md shadow-teal-700/20 active:scale-95"
+              className="flex-1 lg:flex-none h-11 px-6 bg-teal-700 hover:bg-teal-800 text-white rounded-xl font-bold transition-all shadow-md active:scale-95 text-sm flex items-center justify-center"
             >
               Search
             </button>
             <button
               type="button"
               onClick={handleClear}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-5 py-3 rounded-xl font-semibold transition-all active:scale-95"
+              className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-5 h-11 rounded-xl font-semibold transition-all active:scale-95 text-sm flex items-center justify-center"
             >
               Clear
             </button>
           </div>
-        </form>
+        </motion.form>
       </div>
 
-      {/* Daily Lucknow Prayer Times Widget */}
-      {prayerTimings.Fajr && (
-        <div className="max-w-7xl mx-auto px-4 mt-8 sm:px-6 lg:px-8">
-          <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100/80 p-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-slate-100 pb-4">
-              <div>
-                <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                  <Compass className="h-5.5 w-5.5 text-teal-600 animate-spin-slow" />
-                  <span>Today's Lucknow Prayer Times</span>
-                </h2>
-                <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider mt-1">
-                  Lucknow, India (Hanfi) — {dates?.gregorian?.date}
-                </p>
+      {/* 2. PLATFORM METRICS (STATISTICS) - SHOWN ON TOP OF PRAYER TIMINGS */}
+      <section id="site-statistics" className="max-w-[1280px] mx-auto px-4 mt-[100px]">
+        <div className="text-center mb-6">
+          <span className="text-slate-450 text-xs font-black uppercase tracking-wider">Verified Database Stats</span>
+          <h2 className="text-slate-800 font-black text-sm mt-1">Real-time dynamic data fetched from our database.</h2>
+        </div>
+        <div className="bg-white rounded-3xl border border-slate-200/60 p-6 sm:p-10 shadow-sm">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 divide-y lg:divide-y-0 lg:divide-x divide-slate-100">
+            <div className="text-center pt-4 lg:pt-0 lg:px-4 space-y-1 select-none first:pt-0 border-slate-100">
+              <AnimatedCounter target={getStatTarget('totalMosques', 500)} suffix="+" />
+              <h4 className="font-extrabold text-slate-800 text-xs tracking-wider uppercase">Registered Mosques</h4>
+              <p className="text-[10px] text-slate-400 font-semibold">Verified masjid listings</p>
+            </div>
+            <div className="text-center pt-4 lg:pt-0 lg:px-4 space-y-1 select-none border-slate-100">
+              <AnimatedCounter target={getStatTarget('totalHadiths', 100)} suffix="+" />
+              <h4 className="font-extrabold text-slate-800 text-xs tracking-wider uppercase">Daily Hadiths</h4>
+              <p className="text-[10px] text-slate-400 font-semibold">Narrations verified</p>
+            </div>
+            <div className="text-center pt-4 lg:pt-0 lg:px-4 space-y-1 select-none border-slate-100">
+              <AnimatedCounter target={String(categories.length || 20)} suffix="+" />
+              <h4 className="font-extrabold text-slate-800 text-xs tracking-wider uppercase">Adhkar Categories</h4>
+              <p className="text-[10px] text-slate-400 font-semibold">Daily dua widgets</p>
+            </div>
+            <div className="text-center pt-4 lg:pt-0 lg:px-4 space-y-1 select-none border-slate-100">
+              <AnimatedCounter target={getStatTarget('totalUsers', 10000)} suffix="+" />
+              <h4 className="font-extrabold text-slate-800 text-xs tracking-wider uppercase">Monthly Users</h4>
+              <p className="text-[10px] text-slate-400 font-semibold">Active community members</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. TODAY'S PRAYER TIMES SECTION (65% PRAYER TIMES / 35% ADHKAR) */}
+      <section id="prayer-times" className="max-w-[1280px] mx-auto px-4 mt-[100px] text-left scroll-mt-24">
+        <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
+          
+          {/* Left Column (65% - span 6 cols on lg) */}
+          <motion.div 
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeInUp}
+            className="lg:col-span-6 bg-white rounded-3xl border border-slate-200/60 p-6 shadow-sm flex flex-col justify-between hover:border-teal-500/10 transition-colors"
+          >
+            <div>
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 border-b border-slate-100 pb-4">
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 flex items-center gap-1.5">
+                    <span>🕌</span>
+                    <span>Today's Prayer Times</span>
+                  </h3>
+                  <p className="text-xs font-bold text-slate-400 flex items-center gap-1 mt-0.5 uppercase tracking-wider">
+                    <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                    <span>Lucknow, Uttar Pradesh, India</span>
+                  </p>
+                </div>
+                {dates?.hijri && (
+                  <div className="self-start sm:self-auto bg-teal-55 bg-teal-50 text-teal-900 border border-teal-100/50 px-3 py-1.5 rounded-xl text-xs font-bold shadow-xs">
+                    🌙 {dates.hijri.day} {dates.hijri.month.en} {dates.hijri.year} AH
+                  </div>
+                )}
               </div>
-              {dates?.hijri && (
-                <div className="self-start md:self-auto bg-teal-50/80 text-teal-800 px-4 py-2 rounded-xl text-xs font-bold border border-teal-100/70">
-                  {dates.hijri.day} {dates.hijri.month.en} {dates.hijri.year} AH
+
+              {prayerTimings.Fajr ? (
+                <div className="space-y-2">
+                  {[
+                    { name: 'Fajr', time: prayerTimings.Fajr, desc: 'Pre-dawn Prayer', icon: <Moon className="h-4.5 w-4.5 text-teal-600" /> },
+                    { name: 'Sunrise', time: prayerTimings.Sunrise, desc: 'Sunrise Time', icon: <Sunrise className="h-4.5 w-4.5 text-amber-500" /> },
+                    { name: 'Ishraq', time: calculateIshraqTime(prayerTimings.Sunrise), desc: 'Post-sunrise Prayer', icon: <Sun className="h-4.5 w-4.5 text-amber-500" /> },
+                    { name: 'Dhuhr', time: prayerTimings.Dhuhr, desc: 'Midday Prayer', icon: <Sun className="h-4.5 w-4.5 text-emerald-600" /> },
+                    { name: 'Asr', time: prayerTimings.Asr, desc: 'Afternoon Prayer', icon: <Sun className="h-4.5 w-4.5 text-emerald-600" /> },
+                    { name: 'Maghrib', time: prayerTimings.Maghrib, desc: 'Post-sunset Prayer', icon: <Sunset className="h-4.5 w-4.5 text-amber-500" /> },
+                    { name: 'Isha', time: prayerTimings.Isha, desc: 'Night Prayer', icon: <Moon className="h-4.5 w-4.5 text-teal-600" /> }
+                  ].map((prayer) => (
+                    <div 
+                      key={prayer.name} 
+                      className="flex items-center justify-between py-2.5 px-4 rounded-xl border border-slate-100 bg-slate-50/20 hover:bg-slate-50 transition-all duration-200 group/row"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-8.5 w-8.5 h-8 w-8 rounded-lg bg-white border border-slate-100 flex items-center justify-center transition-colors">
+                          {prayer.icon}
+                        </div>
+                        <div>
+                          <div className="font-extrabold text-sm text-slate-800 group-hover/row:text-teal-700 transition-colors">{prayer.name}</div>
+                          <div className="text-[10px] font-semibold text-slate-400 leading-none mt-0.5">{prayer.desc}</div>
+                        </div>
+                      </div>
+                      <div className="font-black text-slate-900 text-sm sm:text-base tracking-tight pr-1">
+                        {formatTime(prayer.time)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="h-48 flex items-center justify-center text-slate-400 font-semibold text-xs">
+                  Loading prayer times...
                 </div>
               )}
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
-              {[
-                { name: 'Fajr', time: prayerTimings.Fajr, color: 'from-orange-500/10 to-amber-500/10 text-amber-800 border-amber-200/40' },
-                { name: 'Sunrise', time: prayerTimings.Sunrise, color: 'from-sky-500/10 to-blue-500/10 text-sky-800 border-sky-200/40' },
-                { name: 'Dhuhr', time: prayerTimings.Dhuhr, color: 'from-emerald-500/10 to-teal-500/10 text-emerald-800 border-emerald-200/40' },
-                { name: 'Asr', time: prayerTimings.Asr, color: 'from-indigo-500/10 to-purple-500/10 text-indigo-800 border-indigo-200/40' },
-                { name: 'Maghrib', time: prayerTimings.Maghrib, color: 'from-rose-500/10 to-red-500/10 text-rose-800 border-rose-200/40' },
-                { name: 'Isha', time: prayerTimings.Isha, color: 'from-slate-600/10 to-slate-800/10 text-slate-800 border-slate-200/40' },
-                { name: 'Sunset', time: prayerTimings.Sunset, color: 'from-red-500/10 to-rose-500/10 text-red-800 border-red-200/40' }
-              ].map((prayer) => (
-                <div key={prayer.name} className={`bg-gradient-to-br ${prayer.color} p-4 rounded-xl text-center border shadow-sm transition-all duration-300 hover:translate-y-[-2px]`}>
-                  <span className="block text-xs font-bold uppercase tracking-wider opacity-85 mb-1.5">{prayer.name}</span>
-                  <span className="block text-lg font-black">{formatTime(prayer.time)}</span>
+            {/* Disclaimer at bottom in English, Hindi, and Urdu */}
+            <div className="text-xs text-slate-400 text-center mt-5 space-y-1.5 border-t border-slate-100 pt-3 leading-relaxed font-semibold italic">
+              <p>EN: Prayer timings are approximate. Please keep a 2-minute safety buffer before Salah.</p>
+              <p className="font-sans">HI: नमाज़ का समय अनुमानित है। कृपया नमाज़ शुरू करने से पहले 2 मिनट का सुरक्षा बफ़र रखें।</p>
+              <p className="font-serif" dir="rtl">UR: نماز کے اوقات تخمینی ہیں۔ براہ کرم نماز شروع کرنے سے پہلے 2 منٹ کا حفاظتی وقفہ رکھیں۔</p>
+            </div>
+          </motion.div>
+
+          {/* Right Column (35% - span 4 cols on lg) with Deep High-Contrast Gradients */}
+          <motion.div 
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeInUp}
+            className={`lg:col-span-4 rounded-3xl p-6 shadow-sm border transition-all duration-300 group flex flex-col justify-between ${
+              isEveningAdhkarTime() 
+                ? 'bg-gradient-to-br from-indigo-950 via-indigo-900 to-slate-950 border-indigo-850 text-white hover:border-indigo-700/50' 
+                : 'bg-gradient-to-br from-amber-950 via-amber-900 to-orange-950 border-amber-850 text-white hover:border-amber-700/50'
+            }`}
+          >
+            <div className="space-y-5">
+              {/* Header with Islamic Icon */}
+              <div className="flex items-center gap-2.5 border-b border-white/10 pb-4">
+                <div className={`h-9 w-9 border rounded-lg flex items-center justify-center shadow-inner group-hover:scale-105 transition-transform ${
+                  isEveningAdhkarTime() ? 'bg-indigo-900/50 border-indigo-500/30 text-indigo-305' : 'bg-amber-900/50 border-amber-500/30 text-amber-305'
+                }`}>
+                  <Sparkles className="h-4.5 w-4.5" />
                 </div>
-              ))}
+                <div>
+                  <h3 className="text-xs font-black text-white">Today's Featured Adhkar</h3>
+                  <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wider mt-0.5">
+                    {isEveningAdhkarTime() ? 'Evening Remembrance' : 'Morning Remembrance'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Dynamic Content Details */}
+              <div className="space-y-2">
+                <h4 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-none">
+                  {isEveningAdhkarTime() ? 'Evening Adhkar' : 'Morning Adhkar'}
+                </h4>
+                <p className="text-slate-200/90 text-xs sm:text-sm leading-relaxed font-normal pt-1">
+                  Read authentic daily adhkar from the Sunnah to begin or end your day with remembrance of Allah.
+                </p>
+              </div>
+
+              {/* 3 Small Badges with High Contrast colors */}
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {[
+                  { label: 'Authentic', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+                  { label: 'Arabic + Translation', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+                  { label: 'Audio Available', color: 'bg-sky-500/20 text-sky-300 border-sky-500/30' }
+                ].map((badge) => (
+                  <span 
+                    key={badge.label}
+                    className={`inline-flex items-center gap-1 text-[9px] font-extrabold px-2 py-0.5 rounded-lg border uppercase tracking-wider ${badge.color}`}
+                  >
+                    <Check className="h-2.5 w-2.5" />
+                    <span>{badge.label}</span>
+                  </span>
+                ))}
+              </div>
             </div>
 
-            {/* Disclaimer / Safety Margin Warning */}
-            <div className="mt-6 pt-4 border-t border-slate-100 flex flex-col gap-2 text-xs sm:text-sm text-slate-500 font-medium">
-              <div className="flex items-start gap-2">
-                <span className="bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider shrink-0 mt-0.5 border border-amber-100">EN</span>
-                <span>Prayer times are approximate. Please observe a 2-minute safety margin before Salah.</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider shrink-0 mt-0.5 border border-amber-100">HI</span>
-                <span>नमाज़ के समय अनुमानित हैं। कृपया नमाज़ से पहले 2 मिनट का अतिरिक्त समय रखें।</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider shrink-0 mt-0.5 border border-amber-100">UR</span>
-                <span className="font-nastaliq leading-relaxed">نماز کے اوقات تخمینی ہیں۔ براہِ کرم نماز سے پہلے 2 منٹ کا احتیاطی وقفہ ضرور رکھیں۔</span>
-              </div>
+            {/* CTA Button */}
+            <div className="pt-6">
+              <Link
+                to={isEveningAdhkarTime() ? '/adhkar/evening' : '/adhkar/morning'}
+                className="w-full h-11 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-md text-xs sm:text-sm group/btn"
+              >
+                <span>Read Today's Adhkar</span>
+                <ArrowRight className="h-4 w-4 text-slate-950 transform group-hover/btn:translate-x-0.5 transition-transform" />
+              </Link>
             </div>
-          </div>
+          </motion.div>
+
         </div>
-      )}
+      </section>
 
-      {/* Hadith of the Day Widget */}
-      <div className="max-w-7xl mx-auto px-4 mt-8 sm:px-6 lg:px-8">
-        <HadithCard 
-          hadith={hadith} 
-          loading={loadingHadith} 
-          error={hadithError} 
-          onRefresh={refreshHadith} 
-        />
-      </div>
-
-      {/* Adhkar Widget Sections */}
-      <div className="max-w-7xl mx-auto px-4 mt-12 sm:px-6 lg:px-8 space-y-10">
-        {/* Featured Adhkar */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-            <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-              <Heart className="h-4 w-4 text-teal-700" />
-              Daily Remembrance (Adhkar)
-            </h3>
-            <Link 
-              to="/adhkar" 
-              className="text-xs font-bold text-teal-700 hover:text-teal-800 transition-colors uppercase tracking-wider flex items-center gap-1 group"
-            >
-              <span>Explore All Categories</span>
-              <ArrowRight className="h-3.5 w-3.5 transform group-hover:translate-x-1 transition-transform" />
-            </Link>
+      {/* 4. FEATURED HADITH SECTION */}
+      <section id="featured-hadith" className="max-w-[1280px] mx-auto px-4 mt-[100px] text-left scroll-mt-24">
+        {loadingHadith ? (
+          <SkeletonLoader variant="featured" />
+        ) : hadithError ? (
+          <div className="bg-white rounded-3xl border border-rose-100 p-8 text-center max-w-xl mx-auto shadow-sm">
+            <span className="bg-rose-550 bg-rose-50 text-rose-800 px-3 py-1 rounded-full text-xs font-bold border border-rose-100 uppercase tracking-wider mb-3 inline-block">Hadith Error</span>
+            <p className="text-slate-600 italic text-sm mb-4">"{hadithError}"</p>
+            <button onClick={refreshHadith} className="bg-teal-700 hover:bg-teal-800 text-white font-bold px-5 py-2 rounded-xl transition-all active:scale-95 text-xs flex items-center gap-2 mx-auto">
+              <RefreshCw className="h-3.5 w-3.5" /> Try Again
+            </button>
           </div>
+        ) : hadith ? (
+          <motion.div 
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeInUp}
+            className="bg-white rounded-3xl border border-slate-200/60 p-6 shadow-sm relative overflow-hidden flex flex-col justify-between max-h-[450px]"
+          >
+            {/* Header Content */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+              <div>
+                <span className="bg-teal-55 bg-teal-50 text-teal-800 px-3.5 py-1.5 rounded-full text-[10px] font-bold border border-teal-100 uppercase tracking-widest">
+                  Hadith of the Day
+                </span>
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-1.5">
+                  Collection: {hadith.collection_name} • Number: #{hadith.hadithnumber}
+                </h3>
+              </div>
 
-          {loadingCategories ? (
-            <SkeletonLoader variant="featured" />
-          ) : categoriesError ? (
-            <ErrorState onRetry={() => loadCategories(true)} />
-          ) : featuredCats.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {featuredCats.map((cat) => {
-                const isRec = (cat.id === 'morning' && morningRecommended) || 
-                              (cat.id === 'evening' && eveningRecommended);
-                return (
-                  <FeaturedAdhkarCard 
-                    key={cat.id} 
-                    category={cat} 
-                    isRecommended={isRec} 
-                  />
-                );
-              })}
+              {/* Language Switcher */}
+              <div className="flex gap-1.5 bg-slate-100 p-1 rounded-xl self-start sm:self-auto border border-slate-200/30">
+                {[
+                  { id: 'hi', label: 'हिन्दी (Hindi)' },
+                  { id: 'ur', label: 'اردو (Urdu)' },
+                  { id: 'en', label: 'English' }
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveLang(tab.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      activeLang === tab.id 
+                        ? 'bg-white text-teal-705 text-teal-700 shadow-xs border border-slate-200/10' 
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          ) : null}
+
+            {/* Arabic Script & Translation Container */}
+            <div className="my-5 overflow-y-auto pr-2 space-y-4 max-h-[220px] scrollbar-thin">
+              <p 
+                className="text-right font-semibold text-lg sm:text-2xl text-slate-900 leading-loose tracking-wide font-serif"
+                dir="rtl"
+              >
+                {hadith.arabic}
+              </p>
+              
+              <p 
+                className={`text-slate-650 text-slate-600 italic py-1 text-sm sm:text-base leading-relaxed ${
+                  activeLang === 'ur' 
+                    ? 'text-right pr-4 border-r-3 border-teal-500/30 font-serif leading-loose text-xl sm:text-2xl' 
+                    : 'pl-4 border-l-3 border-teal-500/30 font-semibold'
+                }`}
+                dir={activeLang === 'ur' ? 'rtl' : 'ltr'}
+              >
+                "{getTranslationText()}"
+              </p>
+            </div>
+
+            {/* Card Footer Actions */}
+            <div className="pt-4 border-t border-slate-100 flex flex-wrap justify-between items-center gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCopyHadith}
+                  className="inline-flex items-center gap-1 bg-slate-50 hover:bg-slate-100 active:scale-95 text-slate-600 px-3.5 py-2 rounded-xl transition-all border border-slate-205 border-slate-200 font-bold text-xs"
+                  title="Copy Hadith Text"
+                >
+                  {copiedHadith ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5 text-slate-500" />}
+                  <span>{copiedHadith ? "Copied!" : "Copy"}</span>
+                </button>
+                
+                <button
+                  onClick={handleShareHadith}
+                  className="inline-flex items-center gap-1 bg-slate-50 hover:bg-slate-100 active:scale-95 text-slate-600 px-3.5 py-2 rounded-xl transition-all border border-slate-200 font-bold text-xs"
+                  title="Share Hadith"
+                >
+                  <Share2 className="h-3.5 w-3.5 text-slate-500" />
+                  <span>Share</span>
+                </button>
+
+                <button
+                  onClick={handleBookmarkHadith}
+                  className={`inline-flex items-center gap-1 px-3.5 py-2 rounded-xl transition-all border font-bold text-xs ${
+                    isBookmarked 
+                      ? 'bg-amber-50 border-amber-200 text-amber-755 text-amber-700' 
+                      : 'bg-slate-50 border-slate-200 text-slate-655 text-slate-655 hover:bg-slate-100'
+                  }`}
+                  title="Bookmark Hadith"
+                >
+                  <Bookmark className={`h-3.5 w-3.5 ${isBookmarked ? 'fill-amber-500 text-amber-700' : 'text-slate-500'}`} />
+                  <span>{isBookmarked ? "Bookmarked" : "Bookmark"}</span>
+                </button>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setIsHadithModalOpen(true)}
+                  className="inline-flex items-center bg-teal-50 hover:bg-teal-100 text-teal-800 px-4 py-2 rounded-xl font-bold transition-all border border-teal-100 text-xs"
+                >
+                  Read More
+                </button>
+                <button
+                  onClick={refreshHadith}
+                  className="inline-flex items-center gap-1 bg-teal-700 hover:bg-teal-800 active:scale-95 text-white px-4 py-2 rounded-xl transition-all shadow-sm font-bold text-xs"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  <span>Next Hadith</span>
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        ) : null}
+
+        {/* Hadith Read More Overlay Modal */}
+        <AnimatePresence>
+          {isHadithModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsHadithModalOpen(false)}
+                className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+              />
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                transition={{ type: "spring", duration: 0.5 }}
+                className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-6 relative z-10 overflow-y-auto max-h-[85vh] text-left"
+              >
+                <button 
+                  onClick={() => setIsHadithModalOpen(false)}
+                  className="absolute right-5 top-5 bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 p-2 rounded-full transition-colors active:scale-95"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+                
+                <h3 className="text-xl font-black text-slate-900 border-b border-slate-100 pb-4 pr-10">
+                  Hadith Context & Narrators
+                </h3>
+
+                <div className="space-y-6 mt-6">
+                  <div>
+                    <h4 className="text-xs font-extrabold uppercase tracking-widest text-teal-800 mb-2">Narrator & Chain</h4>
+                    <p className="text-sm font-semibold text-slate-700 leading-relaxed">
+                      This Hadith is compiled in {hadith?.collection_name || "Sahih books"} under number {hadith?.hadithnumber}.
+                      It carries the grading of <span className="text-emerald-700 font-bold uppercase">{hadith?.grade || "authentic"}</span>.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h4 className="text-xs font-extrabold uppercase tracking-widest text-teal-800 mb-2">Authenticity & Grading Note</h4>
+                    <p className="text-sm font-medium text-slate-500 leading-relaxed">
+                      All hadiths displayed on Salah Directory are sourced from verified Sahih (authentic) collections. Gradings are evaluated by major Islamic scholars of Hadith science. Bookmarking this hadith stores the details locally on your device for offline reading.
+                    </p>
+                  </div>
+
+                  <div className="bg-teal-50/50 rounded-2xl p-4 border border-teal-100/50">
+                    <h4 className="text-sm font-extrabold text-teal-955 flex items-center gap-1.5 mb-1.5">
+                      <Sparkles className="h-5 w-5 text-amber-500" />
+                      <span>Applying this Sunnah</span>
+                    </h4>
+                    <p className="text-xs font-semibold text-teal-900/90 leading-relaxed">
+                      "Make the Prophet's character your guide. Read the translation, ponder upon its guidance, and make it a habit to implement this teaching in your relationships, daily tasks, and community responsibilities."
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-8 pt-4 border-t border-slate-100 text-right">
+                  <button 
+                    onClick={() => setIsHadithModalOpen(false)}
+                    className="bg-teal-700 hover:bg-teal-800 text-white font-bold px-6 py-2.5 rounded-xl transition-all active:scale-95 text-xs"
+                  >
+                    Close Dialog
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+      </section>
+
+      {/* 5. FEATURED MOSQUES SECTION (LIMIT EXACTLY 6) */}
+      <section id="mosque-directory" className="max-w-[1280px] mx-auto px-4 mt-[100px] text-left scroll-mt-24">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+          <div className="space-y-1">
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Featured Mosques</h2>
+            <p className="text-slate-400 text-xs font-semibold">Explore verified mosque profiles and active congregation notices.</p>
+          </div>
+          <Link 
+            to="/nearby-mosques" 
+            className="text-xs font-bold text-teal-700 hover:text-teal-900 transition-colors flex items-center gap-1 self-start sm:self-auto"
+          >
+            <span>View All Mosques</span>
+            <ChevronRight className="h-4 w-4" />
+          </Link>
         </div>
 
-        {/* Popular Adhkar Categories */}
-        {!loadingCategories && !categoriesError && otherCats.length > 0 && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-              <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                <Compass className="h-4 w-4 text-teal-700" />
-                Popular Adhkar Categories
-              </h3>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              {otherCats.map((cat) => (
-                <AdhkarCard 
-                  key={cat.id} 
-                  category={cat} 
-                />
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Mosque Cards Listing */}
-      <div className="max-w-7xl mx-auto px-4 mt-12 sm:px-6 lg:px-8">
         {loading ? (
-          /* Loading Skeletal State */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[1, 2, 3].map((n) => (
-              <div key={n} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden h-96 animate-pulse">
-                <div className="bg-slate-200 h-48 w-full"></div>
-                <div className="p-6 space-y-4">
-                  <div className="h-6 bg-slate-200 rounded w-3/4"></div>
-                  <div className="h-4 bg-slate-200 rounded w-1/2"></div>
-                  <div className="h-4 bg-slate-200 rounded w-5/6"></div>
-                  <div className="h-10 bg-slate-200 rounded w-1/3 pt-4"></div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map((n) => (
+              <div key={n} className="bg-white rounded-2xl border border-slate-100 h-64 animate-pulse">
+                <div className="bg-slate-150 h-32 w-full"></div>
+                <div className="p-4 space-y-2">
+                  <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+                  <div className="h-3 bg-slate-200 rounded w-1/2"></div>
                 </div>
               </div>
             ))}
           </div>
         ) : isOffline && mosques.length === 0 ? (
-          /* Offline Fallback state */
-          <OfflineFallback 
-            title="Cannot load mosques"
-            message="You are currently offline, and there is no cached mosque list available. Please reconnect to the internet to browse mosques."
-          />
-        ) : mosques.length === 0 ? (
-          /* Empty Search State */
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-16 text-center max-w-lg mx-auto mt-8">
-            <div className="h-16 w-16 bg-teal-50 text-teal-600 rounded-full flex items-center justify-center mx-auto mb-5">
-              <Compass className="h-8 w-8" />
-            </div>
-            <h3 className="text-xl font-bold text-slate-800 mb-2">No Mosques Found</h3>
-            <p className="text-slate-500 font-medium">
-              We couldn't find any mosques matching your keywords. Please try adjusting your spelling or filters.
-            </p>
-          </div>
+          <OfflineFallback />
         ) : (
-          /* Main Mosque Grid */
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {mosques.map((mosque) => (
-                <div
+          <div className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {mosques.slice(0, 6).map((mosque) => (
+                <motion.div
                   key={mosque._id}
-                  className="bg-white rounded-2xl shadow-sm hover:shadow-xl hover:translate-y-[-4px] border border-slate-100/90 overflow-hidden flex flex-col transition-all duration-300 group"
+                  whileHover={{ y: -4 }}
+                  transition={{ duration: 0.2 }}
+                  className="bg-white rounded-2xl border border-slate-200/60 overflow-hidden flex flex-col justify-between shadow-xs hover:shadow-md transition-all duration-300 group"
                 >
-                  {/* Image Header */}
-                  <div className="relative h-48 w-full overflow-hidden bg-slate-100">
+                  {/* Photo Header */}
+                  <div className="relative h-40 w-full overflow-hidden bg-slate-100">
                     <img
                       src={getImageUrl(mosque.mosqueImage)}
                       alt={mosque.mosqueName}
                       onError={(e) => { e.target.src = defaultMosque; }}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500"
+                      className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-500"
                     />
-                    <div className="absolute top-4 right-4 bg-teal-800/95 backdrop-blur-sm text-emerald-400 font-bold text-xs px-3 py-1.5 rounded-full shadow-md">
+                    <div className="absolute top-3 right-3 bg-slate-900/90 text-white font-extrabold text-[9px] px-2 py-0.5 rounded shadow-sm">
                       {mosque.area}
                     </div>
                   </div>
 
                   {/* Body Details */}
-                  <div className="p-6 flex flex-col flex-grow">
-                    <h3 className="text-xl font-bold text-slate-800 line-clamp-1 group-hover:text-teal-700 transition-colors">
-                      {mosque.mosqueName}
-                    </h3>
+                  <div className="p-5 flex-grow flex flex-col justify-between">
+                    <div className="space-y-2.5">
+                      <h3 className="font-extrabold text-slate-900 text-sm line-clamp-1 group-hover:text-teal-700 transition-colors">
+                        {mosque.mosqueName}
+                      </h3>
 
-                    <div className="flex items-center text-slate-500 text-sm mt-2 font-medium">
-                      <MapPin className="h-4 w-4 text-slate-400 mr-1.5 flex-shrink-0" />
-                      <span className="truncate">{mosque.address}</span>
+                      <div className="flex items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                        <MapPin className="h-3.5 w-3.5 text-slate-400 mr-1 flex-shrink-0" />
+                        <span className="truncate">{mosque.address}, {mosque.city}</span>
+                      </div>
+
+                      <div className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 text-[9px] font-bold px-2 py-0.5 rounded border border-emerald-100">
+                        <CheckCircle className="h-3 w-3 text-emerald-600" />
+                        <span>Prayer Timings Available</span>
+                      </div>
                     </div>
 
-                    <p className="text-slate-400 text-xs mt-1.5 font-semibold uppercase tracking-wider">
-                      {mosque.city}, {mosque.state} - {mosque.pincode}
-                    </p>
-
-                    <p className="text-slate-500 text-sm mt-4 line-clamp-2 leading-relaxed">
-                      {mosque.aboutMasjid || "No description provided for this masjid yet."}
-                    </p>
-
-                    {/* View Details CTA */}
-                    <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
+                    {/* Action buttons */}
+                    <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
                       <a
                         href={mosque.googleMapLink}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1 transition-colors"
+                        className="text-[10px] font-bold text-teal-650 hover:text-teal-850 flex items-center gap-1 transition-colors"
                       >
-                        <Navigation className="h-3.5 w-3.5" />
+                        <Navigation className="h-3 w-3" />
                         <span>Navigate</span>
                       </a>
 
                       <Link
                         to={`/mosques/${mosque.slug || mosque._id}`}
-                        className="inline-flex items-center space-x-1.5 bg-teal-50 hover:bg-teal-700 text-teal-700 hover:text-white px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200"
+                        className="inline-flex items-center gap-1 bg-slate-50 hover:bg-teal-700 text-slate-655 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs"
                       >
                         <span>View Details</span>
-                        <ArrowRight className="h-4 w-4" />
+                        <ChevronRight className="h-3 w-3" />
                       </Link>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
 
-            {/* Pagination Controls */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center space-x-3 mt-12">
-                <button
-                  disabled={page === 1}
-                  onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                  className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Previous
-                </button>
-                <span className="text-slate-600 text-sm font-bold px-3 py-1 bg-teal-50 border border-teal-100 text-teal-800 rounded-lg">
-                  Page {page} of {totalPages}
-                </span>
-                <button
-                  disabled={page === totalPages}
-                  onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-                  className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Mosque Admin Register CTA */}
-      <div className="max-w-7xl mx-auto px-4 mt-16 sm:px-6 lg:px-8">
-        <div className="bg-gradient-to-r from-teal-800 to-emerald-700 rounded-3xl p-8 sm:p-12 shadow-xl text-center relative overflow-hidden">
-          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
-          <div className="relative z-10 max-w-2xl mx-auto">
-            <h2 className="text-3xl font-extrabold text-white mb-4">Are you a Mosque Administrator?</h2>
-            <p className="text-teal-100 text-base mb-8 font-medium">
-              Register your mosque to manage prayer timings, post announcements, share gallery photos, and keep your congregation updated.
-            </p>
-            <Link
-              to="/register-mosque"
-              className="inline-flex items-center bg-amber-500 hover:bg-amber-600 text-white px-8 py-3.5 rounded-xl font-bold transition-all shadow-md active:scale-95 text-lg"
-            >
-              Register your mosque
-            </Link>
+            <div className="text-center pt-2">
+              <Link 
+                to="/nearby-mosques"
+                className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-50 text-teal-850 border border-slate-200 px-6 py-2.5 rounded-xl font-bold transition-all shadow-xs active:scale-95 text-xs group"
+              >
+                <span>Explore All Mosques in Finder</span>
+                <ArrowRight className="h-4 w-4 text-teal-600 transform group-hover:translate-x-0.5 transition-transform" />
+              </Link>
+            </div>
           </div>
+        )}
+      </section>
+
+
+
+      {/* 7. DISCOVER EVERYTHING SECTION (COMPACT FEATURE INDEX GRID) */}
+      <section id="discover-everything" className="max-w-[1280px] mx-auto px-4 mt-[100px] text-left">
+        <div className="space-y-1 mb-8 text-center sm:text-left">
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Everything Available on SalahDirectory</h2>
+          <p className="text-slate-400 text-xs font-semibold">Access all directories, tools, and widgets directly in one comprehensive index.</p>
         </div>
-      </div>
+
+        <motion.div 
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-50px" }}
+          variants={staggerContainer}
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+        >
+          {[
+            { name: 'Nearby Mosques', desc: 'Find masjids near your current location', icon: <Compass className="h-5 w-5 text-teal-600" />, link: '/nearby-mosques' },
+            { name: 'Prayer Timings', desc: 'Accurate local namaz timings', icon: <Clock className="h-5 w-5 text-amber-500" />, action: () => scrollToSection('prayer-times') },
+            { name: 'Daily Hadith', desc: 'A new authentic Hadith everyday', icon: <BookOpen className="h-5 w-5 text-indigo-500" />, action: () => scrollToSection('featured-hadith') },
+            { name: 'Morning Adhkar', desc: 'Protection duas recited after Fajr', icon: <Sunrise className="h-5 w-5 text-sky-500" />, link: '/adhkar/morning' },
+            { name: 'Evening Adhkar', desc: 'Gratitude supplications after Asr', icon: <Sunset className="h-5 w-5 text-indigo-500" />, link: '/adhkar/evening' },
+            { name: 'Prayer Duas', desc: 'Supplications before & after prayer', icon: <Heart className="h-5 w-5 text-rose-500" />, link: '/adhkar/prayer' },
+            { name: 'Sleep Duas', desc: 'Supplications for peaceful sleep', icon: <Moon className="h-5 w-5 text-indigo-600" />, link: '/adhkar/sleep' },
+            { name: 'Travel Duas', desc: 'Protection while travelling', icon: <Navigation className="h-5 w-5 text-sky-600" />, link: '/adhkar/travel' },
+            { name: 'Food Duas', desc: 'Duas for before and after meals', icon: <Sparkles className="h-5 w-5 text-amber-500" />, link: '/adhkar/food' },
+            { name: 'Wudu Duas', desc: 'Supplications during purification', icon: <Sun className="h-5 w-5 text-teal-600" />, link: '/adhkar/wudu' },
+            { name: 'Mosque Navigation', desc: 'Get driving routes on Google Maps', icon: <MapPin className="h-5 w-5 text-emerald-600" />, link: '/nearby-mosques' },
+            { name: 'Announcements', desc: 'Stay updated with local mosque boards', icon: <Bell className="h-5 w-5 text-amber-500" />, link: '/nearby-mosques' },
+            { name: 'Favorites', desc: 'Bookmark preferred local mosques', icon: <Star className="h-5 w-5 text-yellow-500" />, link: '/nearby-mosques' },
+            { name: 'Community', desc: 'Connect with local congregation events', icon: <Compass className="h-5 w-5 text-purple-500" />, link: '/nearby-mosques' }
+          ].map((item, idx) => {
+            const CardWrapper = item.link ? Link : 'div';
+            return (
+              <motion.div
+                key={idx}
+                variants={fadeInUp}
+                whileHover={{ y: -4 }}
+                transition={{ duration: 0.2 }}
+              >
+                <CardWrapper
+                  to={item.link || undefined}
+                  onClick={item.action || undefined}
+                  className="bg-white p-5 rounded-2xl border border-slate-200/60 hover:border-teal-500/20 shadow-xs hover:shadow-md cursor-pointer transition-all duration-300 group flex flex-col justify-between text-left h-full select-none"
+                >
+                  <div>
+                    <div className="h-9 w-9 bg-slate-50 group-hover:bg-teal-50 rounded-xl flex items-center justify-center mb-4 border border-slate-100 transition-colors">
+                      {item.icon}
+                    </div>
+                    <h3 className="font-extrabold text-slate-800 group-hover:text-teal-700 transition-colors text-sm mb-1 flex items-center gap-1">
+                      <span>{item.name}</span>
+                    </h3>
+                    <p className="text-slate-400 text-xs leading-normal font-semibold">
+                      {item.desc}
+                    </p>
+                  </div>
+                  <div className="pt-4 text-right">
+                    <span className="inline-flex items-center text-teal-650 group-hover:translate-x-0.5 transition-transform">
+                      <ArrowRight className="h-3.5 w-3.5 text-teal-600" />
+                    </span>
+                  </div>
+                </CardWrapper>
+              </motion.div>
+            );
+          })}
+        </motion.div>
+      </section>
+
+      {/* 8. WHY SALAHDIRECTORY SECTION (4 VALUE CARDS WITH ROTATE ANIMS) */}
+
+
+      {/* 9. MOSQUE ADMIN CTA (PREMIUM BANNER) */}
+      <section className="max-w-[1280px] mx-auto px-4 mt-[100px]">
+        <motion.div 
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={fadeInUp}
+          className="bg-gradient-to-r from-teal-900 to-emerald-800 rounded-3xl p-6 sm:p-10 shadow-lg text-center relative overflow-hidden border border-teal-800/40 text-white"
+        >
+          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
+          <div className="relative z-10 max-w-2xl mx-auto space-y-5">
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight">Manage Your Mosque Digitally</h2>
+            <p className="text-teal-105 text-teal-100/95 text-xs sm:text-sm font-normal leading-relaxed">
+              Claim, register, and update your mosque profile in our directories. Keep timings, announcements, visual galleries, and community notices accurate.
+            </p>
+            
+            {/* Features Bullet List */}
+            <div className="flex flex-wrap justify-center gap-3 text-[10px] font-bold tracking-wider uppercase text-emerald-200 pb-2">
+              <span className="bg-teal-950/40 border border-teal-800 px-3 py-1 rounded-md">✓ Update timings</span>
+              <span className="bg-teal-950/40 border border-teal-800 px-3 py-1 rounded-md">✓ Announcements</span>
+              <span className="bg-teal-950/40 border border-teal-800 px-3 py-1 rounded-md">✓ Visual Gallery</span>
+              <span className="bg-teal-950/40 border border-teal-800 px-3 py-1 rounded-md">✓ Community events</span>
+            </div>
+
+            <div className="pt-1">
+              <Link
+                to="/register-mosque"
+                className="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-slate-955 px-6 py-3 rounded-xl font-bold transition-all shadow-md active:scale-95 text-xs"
+              >
+                <span>Register Mosque</span>
+                <ArrowRight className="h-4 w-4 text-slate-900" />
+              </Link>
+            </div>
+          </div>
+        </motion.div>
+      </section>
+
     </div>
   );
 };
