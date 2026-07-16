@@ -7,6 +7,8 @@ const PrayerTimings = () => {
   const [loading, setLoading] = useState(true);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [alert, setAlert] = useState({ show: false, message: '', type: 'error' });
+  const tableContainerRef = React.useRef(null);
+  const changedFieldsRef = React.useRef({ azan: false, jamaat: false });
 
   // Timings form state matching DB schema structure
   const [timings, setTimings] = useState({
@@ -41,6 +43,7 @@ const PrayerTimings = () => {
              lon: response.data.mosque.longitude
            });
         }
+        changedFieldsRef.current = { azan: false, jamaat: false };
       }
     } catch (error) {
       console.error('Error fetching timings:', error);
@@ -59,7 +62,7 @@ const PrayerTimings = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setTimeout(() => {
       setAlert({ show: false, message: '', type: 'error' });
-    }, 5000);
+    }, 6000);
   };
 
   const autoCalculateTimings = () => {
@@ -91,6 +94,7 @@ const PrayerTimings = () => {
         Jumma: { azan: '01:00 PM', khutbah: '01:30 PM' }
       });
 
+      changedFieldsRef.current = { azan: true, jamaat: true };
       showAlert('Prayer timings auto-calculated based on mosque location! Please review and save.', 'success');
     } catch (err) {
       console.error(err);
@@ -99,6 +103,11 @@ const PrayerTimings = () => {
   };
 
   const handleTimeChange = (prayer, field, value) => {
+    if (field === 'azan') {
+      changedFieldsRef.current.azan = true;
+    } else if (field === 'jamaat' || field === 'khutbah') {
+      changedFieldsRef.current.jamaat = true;
+    }
     setTimings((prev) => ({
       ...prev,
       [prayer]: {
@@ -110,10 +119,24 @@ const PrayerTimings = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const onlyAzanChanged = changedFieldsRef.current.azan && !changedFieldsRef.current.jamaat;
+
+    if (onlyAzanChanged && tableContainerRef.current) {
+      tableContainerRef.current.scrollTo({
+        left: tableContainerRef.current.scrollWidth,
+        behavior: 'smooth'
+      });
+    }
+
     setSubmitLoading(true);
     try {
       await api.put('/mosque/my-mosque/timings', timings);
-      showAlert('Prayer timings updated successfully!', 'success');
+      if (onlyAzanChanged) {
+        showAlert('Prayer timings updated! Don\'t forget to verify and update the Jamaat / Khutbah times on the right.', 'success');
+      } else {
+        showAlert('Prayer timings updated successfully!', 'success');
+      }
       fetchTimingsAndMosque();
     } catch (error) {
       console.error('Error updating timings:', error);
@@ -180,7 +203,7 @@ const PrayerTimings = () => {
       {/* Table Form card */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
         <form onSubmit={handleSubmit}>
-          <div className="overflow-x-auto">
+          <div ref={tableContainerRef} className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-100">
               <thead className="bg-slate-50 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">
                 <tr>
