@@ -22,8 +22,13 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('user', JSON.stringify(updatedData));
       } catch (error) {
         console.error('Session check failed or expired:', error);
-        localStorage.removeItem('user');
-        setUser(null);
+        // Only clear user session if the server explicitly rejects the token (401 or 403 status code)
+        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+          localStorage.removeItem('user');
+          setUser(null);
+        } else {
+          console.warn('Network or server error during auth check. Retaining local session.', error.message);
+        }
       } finally {
         setLoading(false);
       }
