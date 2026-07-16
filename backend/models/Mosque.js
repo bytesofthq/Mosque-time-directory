@@ -1,10 +1,21 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
 const MosqueSchema = new mongoose.Schema({
   mosqueName: {
     type: String,
     required: true,
     trim: true
+  },
+  username: {
+    type: String,
+    unique: true,
+    sparse: true,
+    lowercase: true,
+    trim: true
+  },
+  password: {
+    type: String
   },
   mosqueImage: {
     type: String,
@@ -16,7 +27,7 @@ const MosqueSchema = new mongoose.Schema({
   },
   address: {
     type: String,
-    required: true
+    default: ''
   },
   area: {
     type: String,
@@ -30,17 +41,17 @@ const MosqueSchema = new mongoose.Schema({
   },
   state: {
     type: String,
-    required: true,
+    default: '',
     trim: true
   },
   pincode: {
     type: String,
-    required: true,
+    default: '',
     trim: true
   },
   googleMapLink: {
     type: String,
-    required: true
+    default: ''
   },
   latitude: {
     type: Number,
@@ -71,6 +82,17 @@ const MosqueSchema = new mongoose.Schema({
     unique: true,
     sparse: true
   },
+  location: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: {
+      type: [Number], // [longitude, latitude]
+      default: null
+    }
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -79,6 +101,9 @@ const MosqueSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+// Index the location field for geospatial queries
+MosqueSchema.index({ location: '2dsphere' });
 
 const slugify = (text) => {
   return text
@@ -93,6 +118,26 @@ const slugify = (text) => {
 };
 
 MosqueSchema.pre('save', async function(next) {
+  // Hash password if modified
+  if (this.isModified('password') && this.password) {
+    try {
+      const salt = await bcrypt.genSalt(10);
+      this.password = await bcrypt.hash(this.password, salt);
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  // Automatically synchronize GeoJSON location coordinates whenever latitude or longitude is modified
+  if (this.isModified('latitude') || this.isModified('longitude') || !this.location || !this.location.coordinates) {
+    if (this.latitude !== null && this.longitude !== null && this.latitude !== undefined && this.longitude !== undefined) {
+      this.location = {
+        type: 'Point',
+        coordinates: [Number(this.longitude), Number(this.latitude)]
+      };
+    }
+  }
+
   if (this.isModified('mosqueName') || !this.slug) {
     let generatedSlug = slugify(this.mosqueName);
     const Mosque = mongoose.model('Mosque');
@@ -107,5 +152,11 @@ MosqueSchema.pre('save', async function(next) {
   }
   next();
 });
+
+// Instance method to check password
+MosqueSchema.methods.comparePassword = async function(candidatePassword) {
+  if (!this.password) return false;
+  return await bcrypt.compare(candidatePassword, this.password);
+};
 
 module.exports = mongoose.model('Mosque', MosqueSchema);

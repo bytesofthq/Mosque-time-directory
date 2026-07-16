@@ -1,18 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Compass, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Compass, User, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { toast } from 'react-toastify';
 
 const Login = () => {
   const { user, login } = useAuth();
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [keepMeSignedIn, setKeepMeSignedIn] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   
   const [loading, setLoading] = useState(false);
-  const [alert, setAlert] = useState({ show: false, message: '', type: 'error' });
 
   // If already logged in, redirect straight to dashboard
   useEffect(() => {
@@ -26,21 +27,24 @@ const Login = () => {
   }, [user, navigate]);
 
   const showAlert = (message, type = 'error') => {
-    setAlert({ show: true, message, type });
-    setTimeout(() => {
-      setAlert({ show: false, message: '', type: 'error' });
-    }, 5000);
+    if (type === 'success') {
+      toast.success(message);
+    } else if (type === 'warning') {
+      toast.warning(message);
+    } else {
+      toast.error(message);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!email || !password) {
-      return showAlert('Please enter both email and password.');
+    if (!username.trim() || !password) {
+      return showAlert('Please enter both username and password.');
     }
 
     setLoading(true);
-    const result = await login(email, password);
+    const result = await login(username, password, keepMeSignedIn);
     setLoading(false);
 
     if (!result.success) {
@@ -70,33 +74,25 @@ const Login = () => {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10 px-4">
         <div className="bg-white py-8 px-6 sm:px-10 rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100">
           
-          {/* Custom Alert Messages */}
-          {alert.show && (
-            <div className={`mb-6 p-4 rounded-xl flex items-start space-x-2.5 text-sm font-semibold transition-all ${
-              alert.type === 'error' ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-            }`}>
-              <AlertCircle className="h-5 w-5 flex-shrink-0" />
-              <span>{alert.message}</span>
-            </div>
-          )}
+
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Email Field */}
+            {/* Username Field */}
             <div>
-              <label htmlFor="email" className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                Email Address
+              <label htmlFor="username" className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                Username
               </label>
               <div className="relative rounded-xl shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-slate-400" />
+                  <User className="h-5 w-5 text-slate-400" />
                 </div>
                 <input
-                  id="email"
-                  type="email"
+                  id="username"
+                  type="text"
                   required
-                  placeholder="name@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   className="block w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:border-transparent text-slate-800 placeholder-slate-400 transition-all font-medium text-sm"
                 />
               </div>
@@ -128,6 +124,20 @@ const Login = () => {
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
+            </div>
+
+            {/* Keep me signed in Checkbox */}
+            <div className="flex items-center">
+              <input
+                id="keepMeSignedIn"
+                type="checkbox"
+                checked={keepMeSignedIn}
+                onChange={(e) => setKeepMeSignedIn(e.target.checked)}
+                className="rounded border-slate-300 text-teal-700 focus:ring-teal-700 h-4.5 w-4.5 cursor-pointer"
+              />
+              <label htmlFor="keepMeSignedIn" className="ml-2 block text-xs font-bold text-slate-500 select-none cursor-pointer">
+                Keep me signed in
+              </label>
             </div>
 
             {/* Submit Button */}

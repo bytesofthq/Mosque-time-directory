@@ -7,17 +7,20 @@ const UserSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
-  email: {
+  username: {
     type: String,
     required: true,
     unique: true,
     lowercase: true,
     trim: true
   },
-  mobile: {
+  email: {
     type: String,
     required: false,
-    default: ''
+    unique: true,
+    sparse: true,
+    lowercase: true,
+    trim: true
   },
   password: {
     type: String,
@@ -36,23 +39,9 @@ const UserSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
-  },
-  isEmailVerified: {
-    type: Boolean,
-    default: false
-  },
-  emailVerificationToken: {
-    type: String,
-    default: null
-  },
-  emailVerificationExpires: {
-    type: Date,
-    default: null
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
   }
+}, {
+  timestamps: true
 });
 
 // Pre-save hook to hash passwords
@@ -75,3 +64,4 @@ UserSchema.methods.comparePassword = async function(candidatePassword) {
 };
 
 module.exports = mongoose.model('User', UserSchema);
+

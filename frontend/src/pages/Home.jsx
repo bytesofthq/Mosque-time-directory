@@ -1,10 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api, { BACKEND_URL } from '../utils/api';
-import { Search, MapPin, ArrowRight, Compass, Navigation, BookOpen, RefreshCw, Download } from 'lucide-react';
+import { Search, MapPin, ArrowRight, Compass, Navigation, BookOpen, RefreshCw, Download, Heart } from 'lucide-react';
 import { usePWA } from '../context/PWAContext';
 import OfflineFallback from '../components/OfflineFallback';
 import defaultMosque from '../assets/default_mosque.png';
+import { useHadith } from '../hooks/useHadith';
+import HadithCard from '../components/HadithCard';
+import { useAdhkar } from '../hooks/useAdhkar';
+import FeaturedAdhkarCard from '../components/FeaturedAdhkarCard';
+import AdhkarCard from '../components/AdhkarCard';
+import SkeletonLoader from '../components/SkeletonLoader';
+import ErrorState from '../components/ErrorState';
+import { isBeforeDhuhr, isAfterAsrMaghrib } from '../utils/date';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -17,9 +25,13 @@ const Home = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [prayerTimings, setPrayerTimings] = useState({});
   const [dates, setDates] = useState({});
-  const [hadith, setHadith] = useState(null);
-  const [hadithLang, setHadithLang] = useState('hi');
-  const [refreshingHadith, setRefreshingHadith] = useState(false);
+  const { hadith, loading: loadingHadith, error: hadithError, refreshHadith } = useHadith();
+  const { 
+    categories, 
+    loadingCategories, 
+    categoriesError, 
+    loadCategories 
+  } = useAdhkar();
   
   // Suggestions states
   const [suggestions, setSuggestions] = useState([]);
@@ -103,22 +115,7 @@ const Home = () => {
   };
 
 
-  const fetchHadith = async (isRefresh = false) => {
-    if (isRefresh) {
-      setRefreshingHadith(true);
-    }
-    try {
-      const url = isRefresh ? '/public/hadith-of-the-day?refresh=true' : '/public/hadith-of-the-day';
-      const response = await api.get(url);
-      setHadith(response.data);
-    } catch (error) {
-      console.error('Error fetching Hadith:', error);
-    } finally {
-      if (isRefresh) {
-        setRefreshingHadith(false);
-      }
-    }
-  };
+  // Hadith fetching is managed by useHadith hook
 
   useEffect(() => {
     const fetchPrayerTimes = async () => {
@@ -138,8 +135,32 @@ const Home = () => {
     };
 
     fetchPrayerTimes();
-    fetchHadith();
-  }, []);
+    loadCategories();
+  }, [loadCategories]);
+
+  // Determine time-based recommendations
+  const morningRecommended = isBeforeDhuhr();
+  const eveningRecommended = isAfterAsrMaghrib();
+
+  // Filter and sort Featured Adhkar categories
+  const getFeaturedCategories = () => {
+    const featured = categories.filter(c => c.id === 'morning' || c.id === 'evening');
+    if (morningRecommended) {
+      return featured.sort((a, b) => (a.id === 'morning' ? -1 : 1));
+    }
+    if (eveningRecommended) {
+      return featured.sort((a, b) => (a.id === 'evening' ? -1 : 1));
+    }
+    return featured.sort((a, b) => (a.id === 'morning' ? -1 : 1));
+  };
+
+  // Filter 4 popular categories to display on the landing page
+  const getOtherCategories = () => {
+    return categories.filter(c => c.id !== 'morning' && c.id !== 'evening').slice(0, 4);
+  };
+
+  const featuredCats = getFeaturedCategories();
+  const otherCats = getOtherCategories();
 
 const formatTime = (time) => {
   if (!time) return "--:--";
@@ -324,76 +345,74 @@ const formatTime = (time) => {
       )}
 
       {/* Hadith of the Day Widget */}
-      {hadith && (
-        <div className="max-w-7xl mx-auto px-4 mt-8 sm:px-6 lg:px-8">
-          <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 p-6 sm:p-8 relative overflow-hidden">
-            {/* Decorative Book Icon */}
-            <div className="absolute right-0 top-0 opacity-[0.03] text-teal-800 pointer-events-none">
-              <BookOpen className="h-64 w-64 -mr-12 -mt-12" />
+      <div className="max-w-7xl mx-auto px-4 mt-8 sm:px-6 lg:px-8">
+        <HadithCard 
+          hadith={hadith} 
+          loading={loadingHadith} 
+          error={hadithError} 
+          onRefresh={refreshHadith} 
+        />
+      </div>
+
+      {/* Adhkar Widget Sections */}
+      <div className="max-w-7xl mx-auto px-4 mt-12 sm:px-6 lg:px-8 space-y-10">
+        {/* Featured Adhkar */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+            <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+              <Heart className="h-4 w-4 text-teal-700" />
+              Daily Remembrance (Adhkar)
+            </h3>
+            <Link 
+              to="/adhkar" 
+              className="text-xs font-bold text-teal-700 hover:text-teal-800 transition-colors uppercase tracking-wider flex items-center gap-1 group"
+            >
+              <span>Explore All Categories</span>
+              <ArrowRight className="h-3.5 w-3.5 transform group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </div>
+
+          {loadingCategories ? (
+            <SkeletonLoader variant="featured" />
+          ) : categoriesError ? (
+            <ErrorState onRetry={() => loadCategories(true)} />
+          ) : featuredCats.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {featuredCats.map((cat) => {
+                const isRec = (cat.id === 'morning' && morningRecommended) || 
+                              (cat.id === 'evening' && eveningRecommended);
+                return (
+                  <FeaturedAdhkarCard 
+                    key={cat.id} 
+                    category={cat} 
+                    isRecommended={isRec} 
+                  />
+                );
+              })}
             </div>
+          ) : null}
+        </div>
 
-            <div className="relative z-10">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4 mb-6">
-                <div>
-                  <span className="bg-teal-50 text-teal-800 px-3 py-1 rounded-full text-xs font-bold border border-teal-100 uppercase tracking-wider">
-                    Hadith of the Day
-                  </span>
-                  <h2 className="text-sm font-bold text-slate-400 mt-2">
-                    {hadith.reference}
-                  </h2>
-                </div>
-                {/* Language Select Tabs */}
-                <div className="flex bg-slate-100 p-1 rounded-xl self-start sm:self-auto">
-                  {[
-                    { id: 'hi', label: 'हिन्दी (Hindi)' },
-                    { id: 'ur', label: 'اردو (Urdu)' },
-                    { id: 'en', label: 'English' }
-                  ].map((tab) => (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setHadithLang(tab.id)}
-                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                        hadithLang === tab.id 
-                          ? 'bg-white text-teal-700 shadow-sm' 
-                          : 'text-slate-500 hover:text-slate-800'
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <p 
-                  className={`text-slate-700 leading-relaxed font-semibold italic text-lg sm:text-xl whitespace-pre-line ${
-                    hadithLang === 'ur' ? 'text-right font-nastaliq leading-loose' : ''
-                  }`}
-                  dir={hadithLang === 'ur' ? 'rtl' : 'ltr'}
-                >
-                  "{hadith.text[hadithLang]}"
-                </p>
-                <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs font-bold text-slate-400">
-                  <div className="flex items-center gap-4">
-                    <span>— {hadith.narrator}</span>
-                    <span className="uppercase tracking-wider">Sahih al-Bukhari</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => fetchHadith(true)}
-                    disabled={refreshingHadith}
-                    className="inline-flex items-center gap-2 bg-teal-50 hover:bg-teal-100 active:scale-95 text-teal-800 px-4 py-2 rounded-xl transition-all shadow-sm border border-teal-100 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <RefreshCw className={`h-3.5 w-3.5 ${refreshingHadith ? 'animate-spin' : ''}`} />
-                    Get New Hadith
-                  </button>
-                </div>
-              </div>
+        {/* Popular Adhkar Categories */}
+        {!loadingCategories && !categoriesError && otherCats.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+              <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                <Compass className="h-4 w-4 text-teal-700" />
+                Popular Adhkar Categories
+              </h3>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {otherCats.map((cat) => (
+                <AdhkarCard 
+                  key={cat.id} 
+                  category={cat} 
+                />
+              ))}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Mosque Cards Listing */}
       <div className="max-w-7xl mx-auto px-4 mt-12 sm:px-6 lg:px-8">

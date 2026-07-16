@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 // Layouts
 import PublicLayout from './layouts/PublicLayout';
@@ -14,6 +16,8 @@ import RegisterMosque from './pages/RegisterMosque';
 import NearbyMosques from './pages/NearbyMosques';
 import VerifyEmail from './pages/VerifyEmail';
 import SearchResults from './pages/SearchResults';
+import AdhkarHome from './pages/AdhkarHome';
+import AdhkarCategory from './pages/AdhkarCategory';
 
 // Root Admin Pages
 import AdminDashboard from './pages/AdminDashboard';
@@ -49,6 +53,8 @@ const App = () => {
               <Route path="register-mosque" element={<RegisterMosque />} />
               <Route path="nearby-mosques" element={<NearbyMosques />} />
               <Route path="search" element={<SearchResults />} />
+              <Route path="adhkar" element={<AdhkarHome />} />
+              <Route path="adhkar/:categoryId" element={<AdhkarCategory />} />
             </Route>
 
             {/* ========================================== */}
@@ -84,6 +90,7 @@ const App = () => {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           <PWAWidgets />
+          <ToastContainer position="top-right" autoClose={4000} hideProgressBar={false} newestOnTop closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover theme="colored" />
         </BrowserRouter>
       </AuthProvider>
     </PWAProvider>

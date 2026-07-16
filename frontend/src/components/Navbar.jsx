@@ -50,6 +50,13 @@ const Navbar = () => {
               Find Nearby
             </Link>
 
+            <Link
+              to="/adhkar"
+              className="text-slate-600 hover:text-teal-700 px-3 py-2 rounded-md text-sm font-semibold transition-colors"
+            >
+              Adhkar & Hadith
+            </Link>
+
             {!user && (
               <Link
                 to="/register-mosque"
@@ -118,6 +125,14 @@ const Navbar = () => {
               className="block text-slate-600 hover:text-teal-700 hover:bg-slate-50 px-3 py-2.5 rounded-xl text-base font-semibold transition-colors"
             >
               Find Nearby
+            </Link>
+
+            <Link
+              to="/adhkar"
+              onClick={() => setIsOpen(false)}
+              className="block text-slate-600 hover:text-teal-700 hover:bg-slate-50 px-3 py-2.5 rounded-xl text-base font-semibold transition-colors"
+            >
+              Adhkar & Hadith
             </Link>
 
             {!user && (

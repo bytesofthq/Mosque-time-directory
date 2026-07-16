@@ -31,7 +31,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       return [
         { path: '/admin', name: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" /> },
         { path: '/admin/mosques', name: 'Mosques', icon: <Building className="h-5 w-5" /> },
-        { path: '/admin/users', name: 'Users', icon: <Users className="h-5 w-5" /> },
+        { path: '/admin/users', name: 'Root Admins', icon: <Users className="h-5 w-5" /> },
         { path: '/admin/announcements', name: 'Announcements', icon: <Megaphone className="h-5 w-5" /> },
         { path: '/admin/profile', name: 'Profile', icon: <User className="h-5 w-5" /> },
       ];

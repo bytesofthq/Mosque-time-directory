@@ -6,16 +6,19 @@ const {
   updateUserProfile,
   changePassword,
   registerAdminWithMosque,
-  verifyEmail,
-  registerUser
+  registerUser,
+  getSuggestedUsername,
+  validateUsername
 } = require('../controllers/authController');
 const { authenticateUser } = require('../middlewares/authMiddleware');
+const loginRateLimiter = require('../middlewares/rateLimiter');
 
 // Public routes
-router.post('/login', loginUser);
+router.post('/login', loginRateLimiter, loginUser);
 router.post('/register-mosque', registerAdminWithMosque);
 router.post('/register-user', registerUser);
-router.get('/verify-email', verifyEmail);
+router.get('/suggest-username', getSuggestedUsername);
+router.get('/validate-username', validateUsername);
 
 // Protected routes (any logged-in user can access)
 router.route('/profile')
@@ -25,3 +28,4 @@ router.route('/profile')
 router.put('/change-password', authenticateUser, changePassword);
 
 module.exports = router;
+
