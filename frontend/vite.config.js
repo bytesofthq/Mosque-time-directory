@@ -28,7 +28,7 @@ export default defineConfig({
       }
     }),
     VitePWA({
-      registerType: 'prompt', // use prompt so we can display a custom update toast
+      registerType: 'autoUpdate',
       injectRegister: 'auto',
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
@@ -68,7 +68,7 @@ export default defineConfig({
             }
           },
           {
-            urlPattern: /https:\/\/mosque-time-directory-backend\.onrender\.com\/api\/.*/i,
+            urlPattern: /https:\/\/mosque-time-directory-backend\.onrender\.com\/api\/(?!auth\/).*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'backend-api',
@@ -80,7 +80,7 @@ export default defineConfig({
             }
           },
           {
-            urlPattern: /^http:\/\/localhost:5000\/api\/.*/i,
+            urlPattern: /^http:\/\/localhost:5000\/api\/(?!auth\/).*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'backend-api-local',
