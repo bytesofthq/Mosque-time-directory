@@ -440,18 +440,29 @@ const Home = () => {
               { id: 'mosque-directory', label: 'Nearby Mosques', icon: '🕌' },
               { id: 'prayer-times', label: 'Prayer Timings', icon: '🕐' },
               { id: 'featured-hadith', label: 'Daily Hadith', icon: '📖' },
-              { id: 'quick-access', label: 'Morning Adhkar', icon: '🤲' },
-              { id: 'quick-access', label: 'Evening Adhkar', icon: '🌙' },
+              { link: '/adhkar/morning', label: 'Morning Adhkar', icon: '🤲' },
+              { link: '/adhkar/evening', label: 'Evening Adhkar', icon: '🌙' },
               { id: 'discover-everything', label: 'Navigation', icon: '📍' }
             ].map((badge, idx) => (
-              <button
-                key={idx}
-                onClick={() => scrollToSection(badge.id)}
-                className="flex items-center gap-1.5 bg-teal-900/45 hover:bg-teal-800/60 border border-teal-500/15 hover:border-teal-500/30 text-teal-100 text-xs px-3.5 py-1.5 rounded-lg font-semibold transition-all active:scale-95"
-              >
-                <span>{badge.icon}</span>
-                <span>{badge.label}</span>
-              </button>
+              badge.link ? (
+                <Link
+                  key={idx}
+                  to={badge.link}
+                  className="flex items-center gap-1.5 bg-teal-900/45 hover:bg-teal-800/60 border border-teal-500/15 hover:border-teal-500/30 text-teal-100 text-xs px-3.5 py-1.5 rounded-lg font-semibold transition-all active:scale-95"
+                >
+                  <span>{badge.icon}</span>
+                  <span>{badge.label}</span>
+                </Link>
+              ) : (
+                <button
+                  key={idx}
+                  onClick={() => scrollToSection(badge.id)}
+                  className="flex items-center gap-1.5 bg-teal-900/45 hover:bg-teal-800/60 border border-teal-500/15 hover:border-teal-500/30 text-teal-100 text-xs px-3.5 py-1.5 rounded-lg font-semibold transition-all active:scale-95"
+                >
+                  <span>{badge.icon}</span>
+                  <span>{badge.label}</span>
+                </button>
+              )
             ))}
           </motion.div>
         </div>

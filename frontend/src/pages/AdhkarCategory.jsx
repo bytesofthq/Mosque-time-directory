@@ -23,6 +23,7 @@ export const AdhkarCategory = () => {
 
   // Fetch category data on mount / categoryId change
   useEffect(() => {
+    window.scrollTo(0, 0);
     loadCategoryDuas(categoryId);
   }, [categoryId, loadCategoryDuas]);
 

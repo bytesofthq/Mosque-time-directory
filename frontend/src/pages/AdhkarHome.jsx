@@ -32,6 +32,7 @@ export const AdhkarHome = () => {
 
   // Load categories list on component mount
   useEffect(() => {
+    window.scrollTo(0, 0);
     loadCategories();
   }, [loadCategories]);
 
