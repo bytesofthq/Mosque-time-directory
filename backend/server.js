@@ -239,36 +239,47 @@ const startServer = async () => {
   };
   await seedMosqueSlugs();
 
-  // Seed mosque locations for GeoJSON geospatial queries
-  const seedMosqueLocations = async () => {
+  // Verify and sync all mosque locations for GeoJSON geospatial queries
+  const syncAllMosqueCoordinates = async () => {
     try {
       const Mosque = require('./models/Mosque');
-      const mosques = await Mosque.find({ 
-        $or: [
-          { location: { $exists: false } },
-          { location: null },
-          { "location.coordinates": { $size: 0 } },
-          { "location.coordinates": null }
-        ],
+      const mosques = await Mosque.find({
         latitude: { $ne: null },
         longitude: { $ne: null }
       });
-      if (mosques.length > 0) {
-        console.log(`[Startup] Found ${mosques.length} mosques without GeoJSON location field. Migrating...`);
-        for (const mosque of mosques) {
+      
+      let updatedCount = 0;
+      for (const mosque of mosques) {
+        const expectedLng = Number(mosque.longitude);
+        const expectedLat = Number(mosque.latitude);
+        
+        if (
+          !mosque.location ||
+          !mosque.location.coordinates ||
+          mosque.location.coordinates.length !== 2 ||
+          mosque.location.coordinates[0] !== expectedLng ||
+          mosque.location.coordinates[1] !== expectedLat
+        ) {
           mosque.location = {
             type: 'Point',
-            coordinates: [Number(mosque.longitude), Number(mosque.latitude)]
+            coordinates: [expectedLng, expectedLat]
           };
+          mosque.markModified('location');
           await mosque.save();
+          updatedCount++;
         }
-        console.log(`[Startup] Successfully migrated ${mosques.length} mosques to GeoJSON location structure.`);
+      }
+      
+      if (updatedCount > 0) {
+        console.log(`[Startup] Successfully synchronized coordinates for ${updatedCount} mosques in the database.`);
+      } else {
+        console.log(`[Startup] All mosque coordinates are fully in sync.`);
       }
     } catch (error) {
-      console.error('[Startup] Error migrating mosque locations:', error);
+      console.error('[Startup] Error verifying/synchronizing mosque locations:', error);
     }
   };
-  await seedMosqueLocations();
+  await syncAllMosqueCoordinates();
 
   // Seed the admin
   await seedRootAdmin();

@@ -541,37 +541,6 @@ const Home = () => {
         </motion.form>
       </div>
 
-      {/* 2. PLATFORM METRICS (STATISTICS) - SHOWN ON TOP OF PRAYER TIMINGS */}
-      <section id="site-statistics" className="max-w-[1280px] mx-auto px-4 mt-[100px]">
-        <div className="text-center mb-6">
-          <span className="text-slate-450 text-xs font-black uppercase tracking-wider">Verified Database Stats</span>
-          <h2 className="text-slate-800 font-black text-sm mt-1">Real-time dynamic data fetched from our database.</h2>
-        </div>
-        <div className="bg-white rounded-3xl border border-slate-200/60 p-6 sm:p-10 shadow-sm">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 divide-y lg:divide-y-0 lg:divide-x divide-slate-100">
-            <div className="text-center pt-4 lg:pt-0 lg:px-4 space-y-1 select-none first:pt-0 border-slate-100">
-              <AnimatedCounter target={getStatTarget('totalMosques', 500)} suffix="+" />
-              <h4 className="font-extrabold text-slate-800 text-xs tracking-wider uppercase">Registered Mosques</h4>
-              <p className="text-[10px] text-slate-400 font-semibold">Verified masjid listings</p>
-            </div>
-            <div className="text-center pt-4 lg:pt-0 lg:px-4 space-y-1 select-none border-slate-100">
-              <AnimatedCounter target={getStatTarget('totalHadiths', 100)} suffix="+" />
-              <h4 className="font-extrabold text-slate-800 text-xs tracking-wider uppercase">Daily Hadiths</h4>
-              <p className="text-[10px] text-slate-400 font-semibold">Narrations verified</p>
-            </div>
-            <div className="text-center pt-4 lg:pt-0 lg:px-4 space-y-1 select-none border-slate-100">
-              <AnimatedCounter target={String(categories.length || 20)} suffix="+" />
-              <h4 className="font-extrabold text-slate-800 text-xs tracking-wider uppercase">Adhkar Categories</h4>
-              <p className="text-[10px] text-slate-400 font-semibold">Daily dua widgets</p>
-            </div>
-            <div className="text-center pt-4 lg:pt-0 lg:px-4 space-y-1 select-none border-slate-100">
-              <AnimatedCounter target={getStatTarget('totalUsers', 10000)} suffix="+" />
-              <h4 className="font-extrabold text-slate-800 text-xs tracking-wider uppercase">Monthly Users</h4>
-              <p className="text-[10px] text-slate-400 font-semibold">Active community members</p>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* 3. TODAY'S PRAYER TIMES SECTION (65% PRAYER TIMES / 35% ADHKAR) */}
       <section id="prayer-times" className="max-w-[1280px] mx-auto px-4 mt-[100px] text-left scroll-mt-24">

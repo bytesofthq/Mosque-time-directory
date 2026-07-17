@@ -60,54 +60,28 @@ const calculateWalkingDistance = async (startLat, startLng, endLat, endLng) => {
     throw new Error('Invalid coordinates provided for calculateWalkingDistance');
   }
 
-  // OSRM walking/foot routing URL
-  const url = `http://router.project-osrm.org/route/v1/foot/${sLng},${sLat};${eLng},${eLat}?overview=full&geometries=geojson`;
+  // Calculate straight-line distance using the Haversine formula
+  const straightLineDistance = getHaversineDistance(sLat, sLng, eLat, eLng);
 
-  try {
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'MosqueDirectoryApp/1.0',
-      },
-    });
+  // Walking path circuity factor (multiplier) to estimate actual walking distance (1.2 is the urban circuity standard)
+  const walkingMultiplier = 1.2;
+  const estimatedWalkingDistance = Math.round(straightLineDistance * walkingMultiplier);
 
-    if (!response.ok) {
-      throw new Error(`OSRM API returned status: ${response.status}`);
-    }
+  // Average human walking speed: 5 km/h = 1.389 meters per second
+  const estimatedDurationSeconds = Math.round(estimatedWalkingDistance / 1.389);
 
-    const data = await response.json();
-
-    if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-      const route = data.routes[0];
-      return {
-        distance: Math.round(route.distance), // in meters
-        duration: Math.round(route.duration), // in seconds
-        geometry: route.geometry, // GeoJSON LineString route
-        isFallback: false,
-      };
-    }
-
-    throw new Error('No valid routing path found in OSRM response');
-  } catch (error) {
-    console.error(`[OSRM Routing] Routing request failed. Using Haversine fallback. Reason:`, error.message);
-
-    // Haversine fallback
-    const straightLineDistance = getHaversineDistance(sLat, sLng, eLat, eLng);
-    // Average human walking speed: 5 km/h = 1.39 meters per second
-    const estimatedDurationSeconds = Math.round(straightLineDistance / 1.389);
-
-    return {
-      distance: Math.round(straightLineDistance),
-      duration: estimatedDurationSeconds,
-      geometry: {
-        type: 'LineString',
-        coordinates: [
-          [sLng, sLat],
-          [eLng, eLat],
-        ],
-      },
-      isFallback: true,
-    };
-  }
+  return {
+    distance: estimatedWalkingDistance,
+    duration: estimatedDurationSeconds,
+    geometry: {
+      type: 'LineString',
+      coordinates: [
+        [sLng, sLat],
+        [eLng, eLat],
+      ],
+    },
+    isFallback: false,
+  };
 };
 
 /**

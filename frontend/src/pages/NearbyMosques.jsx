@@ -116,12 +116,6 @@ const NearbyMosques = () => {
           <p className="text-teal-100 text-base max-w-xl mx-auto font-medium">
             Locate mosques around you based on your current physical location and filter by distance.
           </p>
-          {coordinates && (
-            <div className="mt-3 text-xs text-emerald-300 font-bold bg-teal-900/40 border border-teal-700/30 px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 shadow-sm">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
-              <span>My Location: {coordinates.lat.toFixed(6)}, {coordinates.lng.toFixed(6)}</span>
-            </div>
-          )}
         </div>
       </div>
 
@@ -139,6 +133,7 @@ const NearbyMosques = () => {
               <option value={300}>300 Meters</option>
               <option value={500}>500 Meters</option>
               <option value={1000}>1 Kilometer</option>
+              <option value={5000}>5 Kilometers</option>
             </select>
           </div>
 
@@ -194,7 +189,7 @@ const NearbyMosques = () => {
             </div>
             <h3 className="text-xl font-bold text-slate-800 mb-2">No Mosques Found</h3>
             <p className="text-slate-500 font-semibold text-sm leading-relaxed">
-              We couldn't locate any registered mosques within {radius < 1000 ? `${radius}m` : '1km'} of your position. Try selecting a larger search radius.
+              We couldn't locate any registered mosques within {radius < 1000 ? `${radius}m` : `${radius / 1000}km`} of your position. Try selecting a larger search radius.
             </p>
           </div>
         ) : (
