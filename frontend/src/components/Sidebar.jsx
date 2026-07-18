@@ -31,8 +31,14 @@ const Sidebar = ({ isOpen, onClose }) => {
       return [
         { path: '/admin', name: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" /> },
         { path: '/admin/mosques', name: 'Mosques', icon: <Building className="h-5 w-5" /> },
-        { path: '/admin/users', name: 'Root Admins', icon: <Users className="h-5 w-5" /> },
+        { path: '/admin/users', name: 'User Management', icon: <Users className="h-5 w-5" /> },
         { path: '/admin/announcements', name: 'Announcements', icon: <Megaphone className="h-5 w-5" /> },
+        { path: '/admin/profile', name: 'Profile', icon: <User className="h-5 w-5" /> },
+      ];
+    } else if (user?.role === 'ADMIN') {
+      return [
+        { path: '/admin', name: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" /> },
+        { path: '/admin/mosques', name: 'My Mosques', icon: <Building className="h-5 w-5" /> },
         { path: '/admin/profile', name: 'Profile', icon: <User className="h-5 w-5" /> },
       ];
     } else if (user && user.role === 'MOSQUE_ADMIN') {
@@ -40,7 +46,6 @@ const Sidebar = ({ isOpen, onClose }) => {
         { path: '/mosque-admin', name: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" /> }
       ];
 
-      // Only show details, timings, announcements, and gallery if they have a mosque
       if (user.mosqueId) {
         baseLinks.push(
           { path: '/mosque-admin/my-mosque', name: 'My Mosque', icon: <Building className="h-5 w-5" /> },
@@ -59,7 +64,8 @@ const Sidebar = ({ isOpen, onClose }) => {
   const links = getLinks();
 
   const getRoleLabel = () => {
-    if (user?.role === 'ROOT_ADMIN') return 'Root Admin';
+    if (user?.role === 'ROOT_ADMIN') return 'Sole Root Admin';
+    if (user?.role === 'ADMIN') return 'Admin';
     return 'Mosque Admin';
   };
 

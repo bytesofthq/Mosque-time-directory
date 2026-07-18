@@ -61,11 +61,15 @@ const AdminDashboard = () => {
       <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Assalamu Alaikum, {user?.name}!</h2>
-          <p className="text-slate-500 text-sm font-semibold mt-1">Welcome to the Salah Directory Root Administrator portal.</p>
+          <p className="text-slate-500 text-sm font-semibold mt-1">
+            {user?.role === 'ROOT_ADMIN' 
+              ? 'Welcome to the Salah Directory Sole Root Administrator portal.' 
+              : 'Welcome to the Salah Directory Admin portal. Manage mosques assigned to your account.'}
+          </p>
         </div>
         <div className="flex items-center space-x-2 text-xs font-bold text-teal-700 bg-teal-50 border border-teal-100 px-4 py-2 rounded-xl">
           <Clock className="h-4 w-4" />
-          <span>Session Active</span>
+          <span>{user?.role === 'ROOT_ADMIN' ? 'Sole Root Admin Session' : 'Admin Session'}</span>
         </div>
       </div>
 
@@ -99,7 +103,9 @@ const AdminDashboard = () => {
         <div>
           <h3 className="font-bold text-amber-950 text-base">System Operator Notice</h3>
           <p className="text-amber-900 text-sm leading-relaxed mt-1 font-medium">
-            As a Root Administrator, you hold full capability privileges over this deployment. You can construct and modify individual mosque records, configure user profiles, change passwords, and manage mosque administrators. Please handle all deletions with caution as changes immediately reflect on the public website.
+            {user?.role === 'ROOT_ADMIN'
+              ? 'As the Sole Root Administrator (mohammeduzaid2@gmail.com), you hold complete platform authority over all users, admins, mosque admins, and mosque directories. Please handle all bulk actions and deletions with caution.'
+              : 'As an Administrator, you have privileges to create, edit, update prayer timings, and manage mosques assigned to your account.'}
           </p>
         </div>
       </div>

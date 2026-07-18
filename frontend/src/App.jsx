@@ -18,6 +18,7 @@ import VerifyEmail from './pages/VerifyEmail';
 import SearchResults from './pages/SearchResults';
 import AdhkarHome from './pages/AdhkarHome';
 import AdhkarCategory from './pages/AdhkarCategory';
+import Tasbeeh from './pages/Tasbeeh';
 
 // Root Admin Pages
 import AdminDashboard from './pages/AdminDashboard';
@@ -37,12 +38,14 @@ import Profile from './pages/Profile';
 // PWA Context & Widgets
 import { PWAProvider } from './context/PWAContext';
 import { PWAWidgets } from './components/PWAWidgets';
+import ScrollToTop from './components/ScrollToTop';
 
 const App = () => {
   return (
     <PWAProvider>
       <AuthProvider>
         <BrowserRouter>
+          <ScrollToTop />
           <Routes>
             {/* ========================================== */}
             {/* PUBLIC CLIENT PORTAL ROUTES */}
@@ -55,6 +58,7 @@ const App = () => {
               <Route path="search" element={<SearchResults />} />
               <Route path="adhkar" element={<AdhkarHome />} />
               <Route path="adhkar/:categoryId" element={<AdhkarCategory />} />
+              <Route path="Tasbeeh" element={<Tasbeeh />} />
             </Route>
 
             {/* ========================================== */}
@@ -64,9 +68,9 @@ const App = () => {
             <Route path="/verify-email" element={<VerifyEmail />} />
 
             {/* ========================================== */}
-            {/* ROOT ADMIN DASHBOARD PANEL */}
+            {/* ADMIN DASHBOARD PANEL */}
             {/* ========================================== */}
-            <Route path="/admin" element={<DashboardLayout allowedRoles={['ROOT_ADMIN']} />}>
+            <Route path="/admin" element={<DashboardLayout allowedRoles={['ROOT_ADMIN', 'ADMIN']} />}>
               <Route index element={<AdminDashboard />} />
               <Route path="mosques" element={<AdminMosques />} />
               <Route path="users" element={<AdminUsers />} />

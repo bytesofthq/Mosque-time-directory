@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -7,6 +8,7 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const connectDB = require('./config/db');
 const User = require('./models/User');
+const migrateSingleRootAdmin = require('./scripts/migrateSingleRootAdmin');
 
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
@@ -19,6 +21,7 @@ const app = express();
 // ==========================================
 // MIDDLEWARES & COOKIE/CSRF SETUP
 // ==========================================
+app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }));
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
@@ -283,6 +286,9 @@ const startServer = async () => {
 
   // Seed the admin
   await seedRootAdmin();
+
+  // Run single root admin migration & role restructuring
+  await migrateSingleRootAdmin();
 
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

@@ -17,9 +17,12 @@ import {
   ChevronUp
 } from 'lucide-react';
 
+import { useLocation } from '../hooks/useLocation';
+
 const RegisterMosque = () => {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const { detectLocation: triggerDetectLocation, loading: geoLoading } = useLocation();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -37,7 +40,6 @@ const RegisterMosque = () => {
   });
 
   const [loading, setLoading] = useState(false);
-  const [geoLoading, setGeoLoading] = useState(false);
   const [showLocationDetails, setShowLocationDetails] = useState(false);
   const [checkingUsername, setCheckingUsername] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState(null);
@@ -94,34 +96,21 @@ const RegisterMosque = () => {
     return () => clearTimeout(delayDebounceFn);
   }, [formData.username]);
 
-  const detectLocation = async () => {
-    setGeoLoading(true);
-    try {
-      const coords = await getCurrentLocation();
-      const lat = coords.latitude.toFixed(6);
-      const lon = coords.longitude.toFixed(6);
-
-      const addressData = await reverseGeocode(lat, lon);
-
+  const handleDetectLocation = async () => {
+    const loc = await triggerDetectLocation();
+    if (loc) {
       setFormData(prev => ({
         ...prev,
-        latitude: lat,
-        longitude: lon,
-        address: addressData.road || prev.address || '',
-        area: addressData.locality || prev.area || '',
-        city: addressData.city || prev.city || '',
-        state: addressData.state || prev.state || '',
-        pincode: addressData.postcode || prev.pincode || '',
-        googleMapLink: prev.googleMapLink || `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`
+        latitude: String(loc.latitude),
+        longitude: String(loc.longitude),
+        address: loc.road || loc.formattedAddress || prev.address,
+        area: loc.locality || loc.suburb || loc.neighbourhood || prev.area,
+        city: loc.city || loc.town || prev.city,
+        state: loc.state || prev.state,
+        pincode: loc.postalCode || prev.pincode,
+        googleMapLink: loc.googleMapsUrl || prev.googleMapLink
       }));
-
       setShowLocationDetails(true);
-      toast.success('Location details detected and auto-filled successfully!');
-    } catch (error) {
-      console.error('Error detecting location:', error);
-      toast.error(error.message || 'Failed to detect location. Please enter details manually.');
-    } finally {
-      setGeoLoading(false);
     }
   };
 
@@ -197,7 +186,7 @@ const RegisterMosque = () => {
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">1. Mosque Information</h3>
                 <button
                   type="button"
-                  onClick={detectLocation}
+                  onClick={handleDetectLocation}
                   disabled={geoLoading}
                   className="bg-teal-700 hover:bg-teal-800 text-white text-[10px] font-extrabold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 active:scale-95 disabled:opacity-50"
                 >

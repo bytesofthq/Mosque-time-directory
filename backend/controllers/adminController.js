@@ -213,9 +213,9 @@ const deleteMosque = async (req, res) => {
   }
 };
 
-// @desc    Get all mosques with search and pagination
+// @desc    Get mosques with search, pagination, and role scoping
 // @route   GET /api/admin/mosques
-// @access  Private (Root Admin)
+// @access  Private (Root Admin / Admin)
 const getMosques = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -223,24 +223,43 @@ const getMosques = async (req, res) => {
     const search = req.query.search || '';
 
     const query = {};
-    if (search) {
+
+    // Role-based Scoping: Admin only sees assigned mosques
+    if (req.user.role === 'ADMIN') {
       query.$or = [
+        { adminOwner: req.user._id },
+        { createdBy: req.user._id }
+      ];
+    }
+
+    if (search) {
+      const searchCondition = [
         { mosqueName: { $regex: search, $options: 'i' } },
         { area: { $regex: search, $options: 'i' } },
         { city: { $regex: search, $options: 'i' } }
       ];
+      if (query.$or) {
+        query.$and = [
+          { $or: query.$or },
+          { $or: searchCondition }
+        ];
+        delete query.$or;
+      } else {
+        query.$or = searchCondition;
+      }
     }
 
     const total = await Mosque.countDocuments(query);
     const mosques = await Mosque.find(query)
       .populate('createdBy', 'name username')
+      .populate('adminOwner', 'name username email')
       .skip((page - 1) * limit)
       .limit(limit)
       .sort({ createdAt: -1 });
 
     const mosquesWithAdmins = await Promise.all(
       mosques.map(async (mosque) => {
-        const admin = await User.findOne({ mosqueId: mosque._id, role: 'MOSQUE_ADMIN' }).select('name username isActive role');
+        const admin = await User.findOne({ mosqueId: mosque._id, role: 'MOSQUE_ADMIN' }).select('name username isActive role lastLogin');
         return {
           ...mosque.toObject(),
           admin: admin || null
@@ -260,25 +279,35 @@ const getMosques = async (req, res) => {
   }
 };
 
-// @desc    Get all Root Admins
+// @desc    Get all Users / Admins / Mosque Admins with lastLogin metadata
 // @route   GET /api/admin/admins
 // @access  Private (Root Admin)
 const getMosqueAdmins = async (req, res) => {
   const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 8;
+  const limit = parseInt(req.query.limit) || 10;
   const search = req.query.search || '';
+  const roleFilter = req.query.role || ''; // ADMIN, MOSQUE_ADMIN, USER, or empty for all non-root
 
   try {
-    const query = { role: 'ROOT_ADMIN' };
+    let query = {};
+    if (roleFilter) {
+      query.role = roleFilter;
+    } else {
+      query.role = { $in: ['ADMIN', 'MOSQUE_ADMIN', 'USER', 'ROOT_ADMIN'] };
+    }
+
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
-        { username: { $regex: search, $options: 'i' } }
+        { username: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
       ];
     }
 
     const total = await User.countDocuments(query);
     const admins = await User.find(query)
+      .select('-password')
+      .populate('mosqueId', 'mosqueName city area')
       .skip((page - 1) * limit)
       .limit(limit)
       .sort({ createdAt: -1 });
@@ -291,7 +320,7 @@ const getMosqueAdmins = async (req, res) => {
     });
   } catch (error) {
     console.error('Get admins error:', error);
-    return res.status(500).json({ message: 'Server error fetching root admins' });
+    return res.status(500).json({ message: 'Server error fetching users/admins' });
   }
 };
 
@@ -623,6 +652,74 @@ const uploadMosqueImageByAdmin = async (req, res) => {
   }
 };
 
+// @desc    Bulk Delete Users
+// @route   POST /api/admin/users/bulk-delete
+// @access  Private (Root Admin)
+const bulkDeleteUsers = async (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ message: 'Please provide an array of user IDs' });
+  }
+
+  try {
+    // Prevent deleting sole root admin
+    const count = await User.deleteMany({
+      _id: { $in: ids },
+      role: { $ne: 'ROOT_ADMIN' }
+    });
+
+    return res.json({ message: `Successfully deleted ${count.deletedCount} users` });
+  } catch (error) {
+    console.error('Bulk delete error:', error);
+    return res.status(500).json({ message: 'Server error executing bulk delete' });
+  }
+};
+
+// @desc    Bulk Activate Users
+// @route   POST /api/admin/users/bulk-activate
+// @access  Private (Root Admin)
+const bulkActivateUsers = async (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ message: 'Please provide an array of user IDs' });
+  }
+
+  try {
+    const result = await User.updateMany(
+      { _id: { $in: ids } },
+      { $set: { isActive: true } }
+    );
+
+    return res.json({ message: `Successfully activated ${result.modifiedCount} users` });
+  } catch (error) {
+    console.error('Bulk activate error:', error);
+    return res.status(500).json({ message: 'Server error executing bulk activation' });
+  }
+};
+
+// @desc    Bulk Deactivate Users
+// @route   POST /api/admin/users/bulk-deactivate
+// @access  Private (Root Admin)
+const bulkDeactivateUsers = async (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ message: 'Please provide an array of user IDs' });
+  }
+
+  try {
+    // Do not deactivate root admin
+    const result = await User.updateMany(
+      { _id: { $in: ids }, role: { $ne: 'ROOT_ADMIN' } },
+      { $set: { isActive: false } }
+    );
+
+    return res.json({ message: `Successfully deactivated ${result.modifiedCount} users` });
+  } catch (error) {
+    console.error('Bulk deactivate error:', error);
+    return res.status(500).json({ message: 'Server error executing bulk deactivation' });
+  }
+};
+
 module.exports = {
   getDashboardStats,
   createMosque,
@@ -638,5 +735,8 @@ module.exports = {
   getUnassignedUsers,
   getMosqueTimings,
   updateMosqueTimings,
-  uploadMosqueImageByAdmin
+  uploadMosqueImageByAdmin,
+  bulkDeleteUsers,
+  bulkActivateUsers,
+  bulkDeactivateUsers
 };

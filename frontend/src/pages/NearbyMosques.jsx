@@ -8,13 +8,16 @@ import {
   Navigation, 
   AlertCircle,
   Footprints,
-  Clock
+  Clock,
+  Search,
+  X
 } from 'lucide-react';
 import defaultMosque from '../assets/default_mosque.png';
 
 const NearbyMosques = () => {
   const [coordinates, setCoordinates] = useState(null);
-  const [radius, setRadius] = useState(500); // Default radius: 500 meters
+  const [radius, setRadius] = useState('all'); // Default: 'all' to show Lucknow mosques
+  const [searchQuery, setSearchQuery] = useState('');
   const [mosques, setMosques] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -31,13 +34,17 @@ const NearbyMosques = () => {
   };
 
   // Get user's location
-  const getUserLocation = () => {
-    setLoading(true);
+  const getUserLocation = (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
     setError('');
     
     if (!navigator.geolocation) {
-      setError('Geolocation is not supported by your browser.');
-      setLoading(false);
+      if (!silent) {
+        setError('Geolocation is not supported by your browser.');
+        setLoading(false);
+      }
       return;
     }
 
@@ -47,47 +54,89 @@ const NearbyMosques = () => {
           lat: position.coords.latitude,
           lng: position.coords.longitude
         });
+        if (!silent) {
+          setLoading(false);
+        }
       },
       (err) => {
         console.error('Error getting location:', err);
-        setError('Permission denied or failed to retrieve your location. Please enable location permissions.');
-        setLoading(false);
+        // Only show error if we are NOT in 'all' mode and not in silent mode
+        if (radius !== 'all' && !silent) {
+          setError('Permission denied or failed to retrieve your location. Please enable location permissions.');
+        }
+        if (!silent) {
+          setLoading(false);
+        }
       },
       { enableHighAccuracy: true, timeout: 8000 }
     );
   };
 
-  // Trigger geolocation on mount
+  // Trigger silent location check on mount and scroll to top
   useEffect(() => {
-    getUserLocation();
+    window.scrollTo(0, 0);
+    getUserLocation(true);
   }, []);
 
-  // Fetch nearby mosques when coordinates or radius changes
+  // Fetch all Lucknow mosques if radius === 'all'
   useEffect(() => {
-    if (!coordinates) return;
+    if (radius === 'all') {
+      const fetchAllLucknow = async () => {
+        setLoading(true);
+        setError('');
+        try {
+          const response = await api.get('/public/mosques', {
+            params: {
+              search: 'Lucknow',
+              limit: 1000
+            }
+          });
+          setMosques(response.data.mosques || []);
+        } catch (err) {
+          console.error('Error fetching Lucknow mosques:', err);
+          setError('Failed to load mosques. Please try again.');
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchAllLucknow();
+    }
+  }, [radius]);
 
-    const fetchNearby = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const response = await api.get('/public/mosques-nearby', {
-          params: {
-            lat: coordinates.lat,
-            lng: coordinates.lng,
-            radius: radius
-          }
-        });
-        setMosques(response.data);
-      } catch (err) {
-        console.error('Error fetching nearby mosques:', err);
-        setError('Failed to load nearby mosques. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchNearby();
+  // Fetch nearby mosques by coordinates and radius when active
+  useEffect(() => {
+    if (radius !== 'all') {
+      const fetchNearby = async () => {
+        if (!coordinates) {
+          getUserLocation();
+          return;
+        }
+        setLoading(true);
+        setError('');
+        try {
+          const response = await api.get('/public/mosques-nearby', {
+            params: {
+              lat: coordinates.lat,
+              lng: coordinates.lng,
+              radius: radius
+            }
+          });
+          setMosques(response.data || []);
+        } catch (err) {
+          console.error('Error fetching nearby mosques:', err);
+          setError('Failed to load nearby mosques. Please try again.');
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchNearby();
+    }
   }, [coordinates, radius]);
+
+  const filteredMosques = mosques.filter((mosque) => {
+    if (!searchQuery.trim()) return true;
+    return mosque.mosqueName.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   const formatDistance = (meters) => {
     if (!meters && meters !== 0) return '';
@@ -120,31 +169,59 @@ const NearbyMosques = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 -mt-6 sm:px-6 lg:px-8 relative z-20">
-        <div className="bg-white p-5 rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-100 flex flex-col sm:flex-row gap-4 items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-bold text-slate-500 uppercase tracking-wide">Search Radius:</span>
-            <select
-              value={radius}
-              onChange={(e) => setRadius(parseInt(e.target.value))}
-              className="bg-slate-50 border border-slate-200 hover:border-teal-500 text-slate-700 font-bold py-2.5 px-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600 focus:border-transparent text-sm transition-all"
-            >
-              <option value={100}>100 Meters</option>
-              <option value={200}>200 Meters</option>
-              <option value={300}>300 Meters</option>
-              <option value={500}>500 Meters</option>
-              <option value={1000}>1 Kilometer</option>
-              <option value={5000}>5 Kilometers</option>
-            </select>
+        <div className="bg-white p-5 rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-100 flex flex-col lg:flex-row gap-4 items-center justify-between">
+          
+          {/* Mosque Name Search Bar */}
+          <div className="relative w-full lg:flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by mosque name only..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 hover:border-teal-500 focus:border-teal-650 text-slate-700 font-medium pl-11 pr-10 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/10 text-sm transition-all placeholder:text-slate-400"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-400 hover:bg-slate-200/60 hover:text-slate-650 transition-all"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
 
-          <button
-            onClick={getUserLocation}
-            disabled={loading}
-            className="w-full sm:w-auto bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5"
-          >
-            <Compass className={`h-4.5 w-4.5 ${loading && !coordinates ? 'animate-spin' : ''}`} />
-            <span>Refresh Location</span>
-          </button>
+          <div className="flex flex-col sm:flex-row gap-4 items-center w-full lg:w-auto">
+            {/* Search Radius Dropdown */}
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <span className="text-xs font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Filter:</span>
+              <select
+                value={radius}
+                onChange={(e) => setRadius(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
+                className="w-full sm:w-auto bg-slate-50 border border-slate-200 hover:border-teal-500 text-slate-700 font-bold py-2.5 px-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600 focus:border-transparent text-sm transition-all cursor-pointer"
+              >
+                <option value="all">All Mosques</option>
+                <option value={100}>100m</option>
+                <option value={250}>250m</option>
+                <option value={500}>500m</option>
+                <option value={1000}>1 KM</option>
+                <option value={2000}>2 KM</option>
+                <option value={5000}>5 KM</option>
+                <option value={10000}>10 KM</option>
+              </select>
+            </div>
+
+            {/* Refresh Location Button */}
+            <button
+              onClick={() => getUserLocation(false)}
+              disabled={loading}
+              className="w-full sm:w-auto bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5"
+            >
+              <Compass className={`h-4.5 w-4.5 ${loading && !coordinates ? 'animate-spin' : ''}`} />
+              <span>Refresh Location</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -167,7 +244,7 @@ const NearbyMosques = () => {
         ) : error ? (
           /* Error State */
           <div className="bg-white rounded-2xl shadow-sm border border-slate-150 p-12 text-center max-w-lg mx-auto">
-            <div className="h-14 w-14 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="h-14 w-14 bg-red-50 text-red-650 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
               <AlertCircle className="h-7 w-7" />
             </div>
             <h3 className="text-lg font-bold text-slate-800 mb-1">Location Error</h3>
@@ -175,7 +252,7 @@ const NearbyMosques = () => {
               {error}
             </p>
             <button
-              onClick={getUserLocation}
+              onClick={() => getUserLocation(false)}
               className="bg-teal-700 hover:bg-teal-800 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-md active:scale-95"
             >
               Try Again
@@ -185,17 +262,36 @@ const NearbyMosques = () => {
           /* Empty Proximity State */
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-16 text-center max-w-lg mx-auto">
             <div className="h-16 w-16 bg-teal-50 text-teal-600 rounded-full flex items-center justify-center mx-auto mb-5">
-              <Compass className="h-8 w-8 animate-spin" />
+              <Compass className="h-8 w-8 animate-pulse" />
             </div>
             <h3 className="text-xl font-bold text-slate-800 mb-2">No Mosques Found</h3>
             <p className="text-slate-500 font-semibold text-sm leading-relaxed">
-              We couldn't locate any registered mosques within {radius < 1000 ? `${radius}m` : `${radius / 1000}km`} of your position. Try selecting a larger search radius.
+              {radius === 'all'
+                ? "We couldn't find any mosques from Lucknow in our directory. Please try again later."
+                : `We couldn't locate any registered mosques within ${radius < 1000 ? `${radius}m` : `${radius / 1000}km`} of your position. Try selecting a larger search radius.`}
             </p>
+          </div>
+        ) : filteredMosques.length === 0 ? (
+          /* Empty Search / Filter State */
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-16 text-center max-w-lg mx-auto">
+            <div className="h-16 w-16 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-5">
+              <Search className="h-8 w-8" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-800 mb-2">No Matches Found</h3>
+            <p className="text-slate-500 font-semibold text-sm leading-relaxed mb-6">
+              We couldn't find any mosques matching "{searchQuery}". Please check the name or try searching for another.
+            </p>
+            <button
+              onClick={() => setSearchQuery('')}
+              className="bg-teal-700 hover:bg-teal-800 active:scale-95 text-white font-bold text-xs uppercase px-5 py-2.5 rounded-xl transition-all shadow-sm"
+            >
+              Clear Search
+            </button>
           </div>
         ) : (
           /* Nearby Mosque Grid */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {mosques.map((mosque) => (
+            {filteredMosques.map((mosque) => (
               <div 
                 key={mosque._id} 
                 className="bg-white rounded-2xl shadow-sm hover:shadow-xl hover:translate-y-[-4px] border border-slate-100/90 overflow-hidden flex flex-col transition-all duration-300 group"
@@ -208,10 +304,12 @@ const NearbyMosques = () => {
                     onError={(e) => { e.target.src = defaultMosque; }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500"
                   />
-                  <div className="absolute top-4 right-4 bg-teal-800/95 backdrop-blur-sm text-emerald-400 font-bold text-xs px-3 py-1.5 rounded-full shadow-md flex items-center gap-1">
-                    <Footprints className="h-3.5 w-3.5" />
-                    <span>{formatDistance(mosque.distance)} walk</span>
-                  </div>
+                  {mosque.distance !== undefined && (
+                    <div className="absolute top-4 right-4 bg-teal-800/95 backdrop-blur-sm text-emerald-400 font-bold text-xs px-3 py-1.5 rounded-full shadow-md flex items-center gap-1">
+                      <Footprints className="h-3.5 w-3.5" />
+                      <span>{formatDistance(mosque.distance)} walk</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Body Details */}
@@ -221,17 +319,19 @@ const NearbyMosques = () => {
                   </h3>
                   
                   {/* Walking Details Row */}
-                  <div className="flex items-center gap-3.5 mt-2 bg-slate-50 border border-slate-100 p-2 px-3 rounded-xl w-fit">
-                    <div className="flex items-center gap-1 text-slate-600 text-xs font-bold">
-                      <Footprints className="h-4 w-4 text-teal-600" />
-                      <span>{formatDistance(mosque.distance)}</span>
+                  {mosque.distance !== undefined && (
+                    <div className="flex items-center gap-3.5 mt-2 bg-slate-50 border border-slate-100 p-2 px-3 rounded-xl w-fit">
+                      <div className="flex items-center gap-1 text-slate-600 text-xs font-bold">
+                        <Footprints className="h-4 w-4 text-teal-600" />
+                        <span>{formatDistance(mosque.distance)}</span>
+                      </div>
+                      <div className="h-3 w-px bg-slate-200" />
+                      <div className="flex items-center gap-1 text-slate-600 text-xs font-bold">
+                        <Clock className="h-3.5 w-3.5 text-emerald-600" />
+                        <span>{formatDuration(mosque.duration)} Walk</span>
+                      </div>
                     </div>
-                    <div className="h-3 w-px bg-slate-200" />
-                    <div className="flex items-center gap-1 text-slate-600 text-xs font-bold">
-                      <Clock className="h-3.5 w-3.5 text-emerald-600" />
-                      <span>{formatDuration(mosque.duration)} Walk</span>
-                    </div>
-                  </div>
+                  )}
                   
                   <div className="flex items-center text-slate-500 text-sm mt-3 font-medium">
                     <MapPin className="h-4 w-4 text-slate-400 mr-1.5 flex-shrink-0" />

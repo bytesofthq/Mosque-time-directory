@@ -57,6 +57,13 @@ const Navbar = () => {
               Adhkar & Hadith
             </Link>
 
+            <Link
+              to="/Tasbeeh"
+              className="text-slate-600 hover:text-teal-700 px-3 py-2 rounded-md text-sm font-semibold transition-colors flex items-center gap-1"
+            >
+              <span>📿</span> Tasbeeh
+            </Link>
+
             {!user && (
               <Link
                 to="/register-mosque"
@@ -69,7 +76,7 @@ const Navbar = () => {
             {user ? (
               <>
                 <Link
-                  to={user.role === 'ROOT_ADMIN' ? '/admin' : '/mosque-admin'}
+                  to={(user.role === 'ROOT_ADMIN' || user.role === 'ADMIN') ? '/admin' : '/mosque-admin'}
                   className="flex items-center space-x-1 bg-teal-50 text-teal-700 hover:bg-teal-100 px-4 py-2 rounded-lg text-sm font-semibold transition-all border border-teal-200/55"
                 >
                   <LayoutDashboard className="h-4 w-4" />
@@ -135,6 +142,14 @@ const Navbar = () => {
               Adhkar & Hadith
             </Link>
 
+            <Link
+              to="/Tasbeeh"
+              onClick={() => setIsOpen(false)}
+              className="block text-slate-600 hover:text-teal-700 hover:bg-slate-50 px-3 py-2.5 rounded-xl text-base font-semibold transition-colors flex items-center gap-2"
+            >
+              <span>📿</span> Tasbeeh Counter
+            </Link>
+
             {!user && (
               <Link
                 to="/register-mosque"
@@ -148,7 +163,7 @@ const Navbar = () => {
             {user ? (
               <div className="pt-2 border-t border-slate-100 mt-2 space-y-2 px-3">
                 <Link
-                  to={user.role === 'ROOT_ADMIN' ? '/admin' : '/mosque-admin'}
+                  to={(user.role === 'ROOT_ADMIN' || user.role === 'ADMIN') ? '/admin' : '/mosque-admin'}
                   onClick={() => setIsOpen(false)}
                   className="flex items-center justify-center space-x-2 bg-teal-50 text-teal-700 hover:bg-teal-100 py-3 rounded-xl text-sm font-semibold transition-all border border-teal-200/55"
                 >

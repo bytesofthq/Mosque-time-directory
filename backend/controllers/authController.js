@@ -3,6 +3,7 @@ const Mosque = require('../models/Mosque');
 const PrayerTiming = require('../models/PrayerTiming');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const { generateLastLoginData } = require('../utils/userAgentParser');
 
 // @desc    Auth user & set secure cookies
 // @route   POST /api/auth/login
@@ -36,6 +37,11 @@ const loginUser = async (req, res) => {
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid username or password' });
     }
+
+    // Update lastLogin tracking metadata
+    const lastLoginData = generateLastLoginData(req);
+    user.lastLogin = lastLoginData;
+    await user.save();
 
     // Sign the JWT
     const token = jwt.sign(
@@ -75,6 +81,7 @@ const loginUser = async (req, res) => {
       email: user.email || undefined,
       role: user.role,
       mosqueId: user.mosqueId,
+      lastLogin: user.lastLogin,
       token: token,
       csrfToken: csrfToken
     });

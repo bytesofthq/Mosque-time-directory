@@ -15,34 +15,42 @@ const {
   getUnassignedUsers,
   getMosqueTimings,
   updateMosqueTimings,
-  uploadMosqueImageByAdmin
+  uploadMosqueImageByAdmin,
+  bulkDeleteUsers,
+  bulkActivateUsers,
+  bulkDeactivateUsers
 } = require('../controllers/adminController');
-const { authenticateUser, authorizeRootAdmin } = require('../middlewares/authMiddleware');
+const { authenticateUser, authorizeRootAdmin, authorizeAdmin } = require('../middlewares/authMiddleware');
 const upload = require('../middlewares/uploadMiddleware');
 
-// All routes here are protected and require Root Admin permissions
-router.use(authenticateUser, authorizeRootAdmin);
+// All admin routes require authentication
+router.use(authenticateUser);
 
-router.get('/stats', getDashboardStats);
-router.get('/unassigned-users', getUnassignedUsers);
-
+// --- Mosque Management Routes (Root Admin & Admin) ---
 router.route('/mosques')
-  .get(getMosques)
-  .post(createMosque);
+  .get(authorizeAdmin, getMosques)
+  .post(authorizeAdmin, createMosque);
 
 router.route('/mosques/:id')
-  .put(updateMosque)
-  .delete(deleteMosque);
+  .put(authorizeAdmin, updateMosque)
+  .delete(authorizeAdmin, deleteMosque);
 
 router.post(
   '/mosques/:id/upload-image',
+  authorizeAdmin,
   upload.single('image'),
   uploadMosqueImageByAdmin
 );
 
 router.route('/mosques/:mosqueId/timings')
-  .get(getMosqueTimings)
-  .put(updateMosqueTimings);
+  .get(authorizeAdmin, getMosqueTimings)
+  .put(authorizeAdmin, updateMosqueTimings);
+
+// --- Sole Root Admin Routes ---
+router.use(authorizeRootAdmin);
+
+router.get('/stats', getDashboardStats);
+router.get('/unassigned-users', getUnassignedUsers);
 
 router.route('/admins')
   .get(getMosqueAdmins)
@@ -55,4 +63,10 @@ router.route('/admins/:id')
 router.put('/admins/:id/status', toggleAdminStatus);
 router.put('/admins/:id/reset-password', resetAdminPassword);
 
+// Bulk user management
+router.post('/users/bulk-delete', bulkDeleteUsers);
+router.post('/users/bulk-activate', bulkActivateUsers);
+router.post('/users/bulk-deactivate', bulkDeactivateUsers);
+
 module.exports = router;
+

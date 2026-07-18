@@ -53,12 +53,20 @@ const authorizeRootAdmin = (req, res, next) => {
   if (req.user && req.user.role === 'ROOT_ADMIN') {
     next();
   } else {
-    return res.status(403).json({ message: 'Access denied: Root Admin privileges required' });
+    return res.status(403).json({ message: 'Access denied: Sole Root Admin privileges required' });
+  }
+};
+
+const authorizeAdmin = (req, res, next) => {
+  if (req.user && (req.user.role === 'ROOT_ADMIN' || req.user.role === 'ADMIN')) {
+    next();
+  } else {
+    return res.status(403).json({ message: 'Access denied: Admin privileges required' });
   }
 };
 
 const authorizeMosqueAdmin = (req, res, next) => {
-  if (req.user && req.user.role === 'MOSQUE_ADMIN') {
+  if (req.user && (req.user.role === 'MOSQUE_ADMIN' || req.user.role === 'ADMIN' || req.user.role === 'ROOT_ADMIN')) {
     next();
   } else {
     return res.status(403).json({ message: 'Access denied: Mosque Admin privileges required' });
@@ -68,6 +76,8 @@ const authorizeMosqueAdmin = (req, res, next) => {
 module.exports = {
   authenticateUser,
   authorizeRootAdmin,
+  authorizeAdmin,
   authorizeMosqueAdmin
 };
+
 

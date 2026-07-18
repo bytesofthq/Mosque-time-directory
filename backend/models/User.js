@@ -28,7 +28,7 @@ const UserSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['ROOT_ADMIN', 'MOSQUE_ADMIN'],
+    enum: ['ROOT_ADMIN', 'ADMIN', 'MOSQUE_ADMIN', 'USER'],
     required: true
   },
   mosqueId: {
@@ -39,6 +39,27 @@ const UserSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  lastLogin: {
+    timestamp: { type: Date, default: null },
+    date: { type: String, default: '' },
+    time: { type: String, default: '' },
+    day: { type: String, default: '' },
+    timezone: { type: String, default: '' },
+    ipAddress: { type: String, default: '' },
+    device: { type: String, default: '' },
+    browser: { type: String, default: '' },
+    os: { type: String, default: '' }
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  updatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
   }
 }, {
   timestamps: true

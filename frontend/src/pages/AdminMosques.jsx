@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import api from '../utils/api';
-import { getCurrentLocation, reverseGeocode } from '../utils/location';
+import { useLocation } from '../hooks/useLocation';
 import { 
   Building, 
   Search, 
@@ -21,11 +21,29 @@ import {
 import { Coordinates, CalculationMethod, PrayerTimes } from 'adhan';
 
 const AdminMosques = () => {
+  const { detectLocation: triggerDetectLocation, loading: geoLoading } = useLocation();
   const [mosques, setMosques] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+
+  const handleDetectLocation = async () => {
+    const loc = await triggerDetectLocation();
+    if (loc) {
+      setFormData(prev => ({
+        ...prev,
+        latitude: String(loc.latitude),
+        longitude: String(loc.longitude),
+        address: loc.road || loc.formattedAddress || prev.address,
+        area: loc.locality || loc.suburb || loc.neighbourhood || prev.area,
+        city: loc.city || loc.town || prev.city,
+        state: loc.state || prev.state,
+        pincode: loc.postalCode || prev.pincode,
+        googleMapLink: loc.googleMapsUrl || prev.googleMapLink
+      }));
+    }
+  };
   
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -47,7 +65,6 @@ const AdminMosques = () => {
     Jumma: { azan: '', khutbah: '' }
   });
 
-  const [geoLoading, setGeoLoading] = useState(false);
   const [timingsLoading, setTimingsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreview, setFilePreview] = useState('');
@@ -664,7 +681,7 @@ const AdminMosques = () => {
                   <h4 className="text-xs font-extrabold uppercase text-slate-400 tracking-wider">1. Basic Details</h4>
                   <button
                     type="button"
-                    onClick={detectLocation}
+                    onClick={handleDetectLocation}
                     disabled={geoLoading}
                     className="bg-teal-700 hover:bg-teal-800 text-white text-[10px] font-extrabold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 active:scale-95 disabled:opacity-50"
                   >
