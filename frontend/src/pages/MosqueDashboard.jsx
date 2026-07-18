@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import api, { BACKEND_URL } from '../utils/api';
-import { getCurrentLocation, reverseGeocode, forwardGeocode } from '../utils/location';
+import { forwardGeocode } from '../utils/location';
 import { useAuth } from '../hooks/useAuth';
+import { useLocation } from '../hooks/useLocation';
 import { 
   Building, 
   Clock, 
@@ -21,6 +22,7 @@ import defaultMosque from '../assets/default_mosque.png';
 
 const MosqueDashboard = () => {
   const { user, updateProfileState } = useAuth();
+  const { detectLocation: triggerDetectLocation, loading: geoLoading } = useLocation();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -39,7 +41,6 @@ const MosqueDashboard = () => {
   });
 
   const [formLoading, setFormLoading] = useState(false);
-  const [geoLoading, setGeoLoading] = useState(false);
   const [alert, setAlert] = useState({ show: false, message: '', type: 'error' });
 
   useEffect(() => {
@@ -83,43 +84,40 @@ const MosqueDashboard = () => {
   };
 
   const detectLocation = async () => {
-    setGeoLoading(true);
-    try {
-      const coords = await getCurrentLocation();
-      const lat = coords.latitude.toFixed(6);
-      const lon = coords.longitude.toFixed(6);
+    const loc = await triggerDetectLocation();
+    if (loc) {
+      const isRealAddress = loc.formattedAddress && !loc.formattedAddress.startsWith('Lat:');
+      const addressVal = isRealAddress 
+        ? loc.formattedAddress 
+        : (loc.road || [loc.area || loc.neighbourhood || loc.locality, loc.city].filter(Boolean).join(', '));
 
-      const addressData = await reverseGeocode(lat, lon);
+      const areaVal = loc.area || loc.neighbourhood || loc.locality || loc.suburb || loc.village || '';
+      const cityVal = loc.city || loc.town || loc.district || '';
+      const stateVal = loc.state || '';
+      const pincodeVal = loc.postalCode || loc.postcode || '';
 
       setFormData(prev => {
         const mName = prev.mosqueName || 'Our Mosque';
-        const locality = addressData.area || addressData.locality || addressData.city || 'our local community';
+        const localityName = areaVal || cityVal || 'our local community';
         
         let generatedAbout = prev.aboutMasjid;
         if (!generatedAbout) {
-           generatedAbout = `Welcome to ${mName}. Located in the heart of ${locality}, our mosque serves as a spiritual center for daily prayers, community gatherings, and Islamic education.`;
+           generatedAbout = `Welcome to ${mName}. Located in the heart of ${localityName}, our mosque serves as a spiritual center for daily prayers, community gatherings, and Islamic education.`;
         }
 
         return {
           ...prev,
-          latitude: lat,
-          longitude: lon,
-          address: addressData.road || prev.address,
-          area: addressData.locality || prev.area,
-          city: addressData.city || prev.city,
-          state: addressData.state || prev.state,
-          pincode: addressData.postcode || prev.pincode,
-          googleMapLink: prev.googleMapLink || `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`,
+          latitude: String(loc.latitude),
+          longitude: String(loc.longitude),
+          address: addressVal || prev.address,
+          area: areaVal || prev.area,
+          city: cityVal || prev.city,
+          state: stateVal || prev.state,
+          pincode: pincodeVal || prev.pincode,
+          googleMapLink: loc.googleMapsUrl || `https://www.google.com/maps/search/?api=1&query=${loc.latitude},${loc.longitude}`,
           aboutMasjid: generatedAbout
         };
       });
-
-      showAlert('Location details auto-filled successfully!', 'success');
-    } catch (error) {
-      console.error('Error detecting location:', error);
-      showAlert(error.message || 'Failed to detect location. Please enter details manually.');
-    } finally {
-      setGeoLoading(false);
     }
   };
 

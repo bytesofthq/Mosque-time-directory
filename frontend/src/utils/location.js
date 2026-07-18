@@ -124,29 +124,33 @@ export const reverseGeocode = async (lat, lng) => {
       throw new Error('No address information returned from geocoding service.');
     }
 
-    const addr = data.address;
+    const addr = data.address || {};
 
     // Fallback Logic mapping
-    // road -> street -> residential -> path -> suburb
-    const road = addr.road || addr.street || addr.residential || addr.path || addr.suburb || '';
+    // road -> street -> residential -> path -> suburb -> pedestrian -> highway
+    const road = addr.road || addr.street || addr.residential || addr.path || addr.pedestrian || addr.highway || addr.suburb || '';
+
+    // neighbourhood -> suburb -> quarter -> residential -> city_district
+    const neighbourhood = addr.neighbourhood || addr.suburb || addr.quarter || addr.residential || addr.city_district || '';
 
     // locality -> suburb -> neighbourhood -> village -> hamlet -> town -> city_district
-    const locality = addr.suburb || addr.neighbourhood || addr.village || addr.hamlet || addr.town || addr.city_district || '';
+    const locality = addr.locality || addr.suburb || addr.neighbourhood || addr.village || addr.hamlet || addr.town || addr.city_district || '';
+
+    const suburb = addr.suburb || '';
 
     // city -> city -> town -> municipality -> county -> state_district
     const city = addr.city || addr.town || addr.municipality || addr.county || addr.state_district || '';
 
     const district = addr.district || addr.county || '';
     const state = addr.state || '';
-    const postcode = addr.postcode || '';
+    const postcode = addr.postcode || addr.postalCode || '';
     const country = addr.country || '';
-    const neighbourhood = addr.neighbourhood || '';
-    const suburb = addr.suburb || '';
 
-    // Assemble formattedAddress programmatically to ensure it is clean and skips empty fields
-    const addressParts = [road, locality, city, state, country].filter(Boolean);
-    
-    // Remove duplicates from addressParts (e.g. if city and locality resolved to the same string)
+    // Area: Best neighborhood or area representation
+    const area = addr.neighbourhood || addr.suburb || addr.locality || addr.quarter || addr.village || addr.hamlet || addr.town || addr.city_district || city || '';
+
+    // Formatted address: use display_name or fallback to assembled string
+    const addressParts = [road, area, city, state, country].filter(Boolean);
     const uniqueAddressParts = [];
     const seenParts = new Set();
     for (const part of addressParts) {
@@ -157,17 +161,19 @@ export const reverseGeocode = async (lat, lng) => {
         seenParts.add(lower);
       }
     }
-    const formattedAddress = uniqueAddressParts.join(', ') || data.display_name || '';
+    const formattedAddress = data.display_name || uniqueAddressParts.join(', ') || '';
 
     const structuredAddress = {
       road,
       locality,
       neighbourhood,
       suburb,
+      area,
       city,
       district,
       state,
       postcode,
+      postalCode: postcode,
       country,
       formattedAddress,
     };

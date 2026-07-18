@@ -99,16 +99,26 @@ const RegisterMosque = () => {
   const handleDetectLocation = async () => {
     const loc = await triggerDetectLocation();
     if (loc) {
+      const isRealAddress = loc.formattedAddress && !loc.formattedAddress.startsWith('Lat:');
+      const addressVal = isRealAddress 
+        ? loc.formattedAddress 
+        : (loc.road || [loc.area || loc.neighbourhood || loc.locality, loc.city].filter(Boolean).join(', '));
+      
+      const areaVal = loc.area || loc.neighbourhood || loc.locality || loc.suburb || loc.village || '';
+      const cityVal = loc.city || loc.town || loc.district || '';
+      const stateVal = loc.state || '';
+      const pincodeVal = loc.postalCode || loc.postcode || '';
+
       setFormData(prev => ({
         ...prev,
         latitude: String(loc.latitude),
         longitude: String(loc.longitude),
-        address: loc.road || loc.formattedAddress || prev.address,
-        area: loc.locality || loc.suburb || loc.neighbourhood || prev.area,
-        city: loc.city || loc.town || prev.city,
-        state: loc.state || prev.state,
-        pincode: loc.postalCode || prev.pincode,
-        googleMapLink: loc.googleMapsUrl || prev.googleMapLink
+        address: addressVal || prev.address,
+        area: areaVal || prev.area,
+        city: cityVal || prev.city,
+        state: stateVal || prev.state,
+        pincode: pincodeVal || prev.pincode,
+        googleMapLink: loc.googleMapsUrl || `https://www.google.com/maps/search/?api=1&query=${loc.latitude},${loc.longitude}`
       }));
       setShowLocationDetails(true);
     }

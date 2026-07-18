@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import axios from 'axios';
+import { reverseGeocode as reverseGeocodeNominatim } from '../utils/location';
 
 export interface NormalizedLocation {
   latitude: number;
@@ -19,6 +20,8 @@ export interface NormalizedLocation {
   state: string;
   stateCode: string;
   postalCode: string;
+  postcode: string;
+  area: string;
   country: string;
   countryCode: string;
   googleMapsUrl: string;
@@ -32,7 +35,7 @@ export const getMapboxAccessToken = (): string => {
 
 /**
  * Reverse Geocodes coordinates using Mapbox Reverse Geocoding API v5
- * and normalizes the response into a unified location object.
+ * with automatic fallback to OpenStreetMap Nominatim if Mapbox is unavailable.
  */
 export const reverseGeocodeMapbox = async (
   latitude: number,
@@ -47,32 +50,68 @@ export const reverseGeocodeMapbox = async (
   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${latitude.toFixed(6)},${longitude.toFixed(6)}`;
   const currentTimestamp = Date.now();
 
-  // If no Mapbox token is provided, return default normalized structure with Google Maps URL
+  const tryNominatimFallback = async (): Promise<NormalizedLocation> => {
+    try {
+      const nomData: any = await reverseGeocodeNominatim(latitude, longitude);
+      return {
+        latitude: Number(latitude.toFixed(6)),
+        longitude: Number(longitude.toFixed(6)),
+        accuracy,
+        formattedAddress: nomData.formattedAddress || `Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`,
+        placeName: nomData.formattedAddress || '',
+        road: nomData.road || '',
+        neighbourhood: nomData.neighbourhood || nomData.area || '',
+        locality: nomData.locality || '',
+        suburb: nomData.suburb || '',
+        village: nomData.village || '',
+        town: nomData.town || '',
+        city: nomData.city || '',
+        district: nomData.district || '',
+        county: nomData.county || '',
+        state: nomData.state || '',
+        stateCode: '',
+        postalCode: nomData.postcode || nomData.postalCode || '',
+        postcode: nomData.postcode || nomData.postalCode || '',
+        area: nomData.area || nomData.neighbourhood || nomData.locality || nomData.suburb || '',
+        country: nomData.country || '',
+        countryCode: '',
+        googleMapsUrl,
+        timestamp: currentTimestamp,
+      };
+    } catch (nomError) {
+      console.warn('[MapboxService] Nominatim fallback failed as well:', nomError);
+      return {
+        latitude: Number(latitude.toFixed(6)),
+        longitude: Number(longitude.toFixed(6)),
+        accuracy,
+        formattedAddress: `Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`,
+        placeName: '',
+        road: '',
+        neighbourhood: '',
+        locality: '',
+        suburb: '',
+        village: '',
+        town: '',
+        city: '',
+        district: '',
+        county: '',
+        state: '',
+        stateCode: '',
+        postalCode: '',
+        postcode: '',
+        area: '',
+        country: '',
+        countryCode: '',
+        googleMapsUrl,
+        timestamp: currentTimestamp,
+      };
+    }
+  };
+
+  // If no Mapbox token is provided, fallback to Nominatim
   if (!accessToken) {
-    console.warn('[MapboxService] VITE_MAPBOX_ACCESS_TOKEN is not set. Returning basic coordinates location.');
-    return {
-      latitude: Number(latitude.toFixed(6)),
-      longitude: Number(longitude.toFixed(6)),
-      accuracy,
-      formattedAddress: `Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`,
-      placeName: '',
-      road: '',
-      neighbourhood: '',
-      locality: '',
-      suburb: '',
-      village: '',
-      town: '',
-      city: '',
-      district: '',
-      county: '',
-      state: '',
-      stateCode: '',
-      postalCode: '',
-      country: '',
-      countryCode: '',
-      googleMapsUrl,
-      timestamp: currentTimestamp,
-    };
+    console.warn('[MapboxService] VITE_MAPBOX_ACCESS_TOKEN is not set. Using Nominatim OpenStreetMap fallback.');
+    return await tryNominatimFallback();
   }
 
   const endpoint = `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${accessToken}&types=address,poi,neighborhood,locality,place,district,region,postcode,country`;
@@ -82,7 +121,8 @@ export const reverseGeocodeMapbox = async (
     const data = response.data;
 
     if (!data || !data.features || data.features.length === 0) {
-      throw new Error('No location details returned from Mapbox reverse geocoding service.');
+      console.warn('[MapboxService] No features returned from Mapbox. Trying Nominatim fallback.');
+      return await tryNominatimFallback();
     }
 
     const primaryFeature = data.features[0];
@@ -104,12 +144,10 @@ export const reverseGeocodeMapbox = async (
     let country = '';
     let countryCode = '';
 
-    // Extract road / street from primary feature or context
     if (primaryFeature.place_type?.includes('address') || primaryFeature.place_type?.includes('poi')) {
       road = primaryFeature.text || '';
     }
 
-    // Inspect feature contexts
     const contextList = primaryFeature.context || [];
     const allFeatures = [primaryFeature, ...contextList];
 
@@ -147,15 +185,13 @@ export const reverseGeocodeMapbox = async (
       }
     }
 
-    // Clean district name (e.g. "Lucknow District" -> "Lucknow")
     const cleanDistrict = rawDistrict.replace(/\s+district$/i, '').trim();
 
-    // Smart City vs Sub-district / Tehsil assignment
     if (cleanDistrict) {
       district = cleanDistrict;
-      city = cleanDistrict; // Assign major city/district (e.g. Lucknow)
+      city = cleanDistrict;
       if (rawPlace && rawPlace.toLowerCase() !== cleanDistrict.toLowerCase()) {
-        suburb = rawPlace; // "Bakshi Ka Talab"
+        suburb = rawPlace;
         if (!locality) locality = rawPlace;
       }
     } else if (rawPlace) {
@@ -164,12 +200,13 @@ export const reverseGeocodeMapbox = async (
       city = rawLocality;
     }
 
-    // Fallbacks for locality and area
     if (rawNeighbourhood) {
       locality = rawNeighbourhood;
     } else if (!locality && suburb) {
       locality = suburb;
     }
+
+    const area = neighbourhood || suburb || locality || rawNeighbourhood || town || '';
 
     return {
       latitude: Number(latitude.toFixed(6)),
@@ -189,16 +226,15 @@ export const reverseGeocodeMapbox = async (
       state,
       stateCode,
       postalCode,
+      postcode: postalCode,
+      area,
       country,
       countryCode,
       googleMapsUrl,
       timestamp: currentTimestamp,
     };
   } catch (error: any) {
-    console.error('[MapboxService] Error during reverse geocoding:', error);
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
-      throw new Error('Invalid Mapbox access token provided.');
-    }
-    throw new Error(error.message || 'Failed to resolve location via Mapbox reverse geocoding.');
+    console.warn('[MapboxService] Error during Mapbox reverse geocoding, trying Nominatim fallback:', error);
+    return await tryNominatimFallback();
   }
 };
