@@ -19,6 +19,7 @@ import SearchResults from './pages/SearchResults';
 import AdhkarHome from './pages/AdhkarHome';
 import AdhkarCategory from './pages/AdhkarCategory';
 import Tasbeeh from './pages/Tasbeeh';
+import DownloadApp from './pages/DownloadApp';
 
 // Root Admin Pages
 import AdminDashboard from './pages/AdminDashboard';
@@ -59,6 +60,7 @@ const App = () => {
               <Route path="adhkar" element={<AdhkarHome />} />
               <Route path="adhkar/:categoryId" element={<AdhkarCategory />} />
               <Route path="Tasbeeh" element={<Tasbeeh />} />
+              <Route path="download" element={<DownloadApp />} />
             </Route>
 
             {/* ========================================== */}

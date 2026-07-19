@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import logo from "../assets/logo.png";
 import bsLogo from "../assets/bs-logo.png";
 
@@ -37,6 +38,11 @@ const Footer = () => {
             </p>
             <p className="text-xs">
               Serving the Ummah with accurate timings.
+            </p>
+            <p className="pt-1">
+              <Link to="/download" className="text-xs text-teal-700 hover:underline font-semibold flex items-center justify-center lg:justify-start gap-1">
+                📲 Download Mobile App
+              </Link>
             </p>
           </div>
 
