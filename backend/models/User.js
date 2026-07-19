@@ -81,7 +81,13 @@ UserSchema.pre('save', async function(next) {
 
 // Instance method to check password
 UserSchema.methods.comparePassword = async function(candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
+  if (!this.password || typeof candidatePassword !== 'string') return false;
+  try {
+    return await bcrypt.compare(candidatePassword, this.password);
+  } catch (error) {
+    console.error('Error comparing password:', error);
+    return false;
+  }
 };
 
 module.exports = mongoose.model('User', UserSchema);

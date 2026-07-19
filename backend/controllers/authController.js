@@ -9,14 +9,14 @@ const { generateLastLoginData } = require('../utils/userAgentParser');
 // @route   POST /api/auth/login
 // @access  Public
 const loginUser = async (req, res) => {
-  const { username, password, keepMeSignedIn } = req.body;
+  const { username, password, keepMeSignedIn } = req.body || {};
 
   if (!username || !password) {
     return res.status(400).json({ message: 'Please provide username/email and password' });
   }
 
   try {
-    const identifier = username.toLowerCase().trim();
+    const identifier = String(username).toLowerCase().trim();
     let query = {};
     if (identifier.includes('@')) {
       query = { email: identifier };
@@ -38,10 +38,14 @@ const loginUser = async (req, res) => {
       return res.status(401).json({ message: 'Invalid username or password' });
     }
 
-    // Update lastLogin tracking metadata
-    const lastLoginData = generateLastLoginData(req);
-    user.lastLogin = lastLoginData;
-    await user.save();
+    // Safely update lastLogin tracking metadata without triggering full document schema validation errors
+    let lastLoginData = user.lastLogin;
+    try {
+      lastLoginData = generateLastLoginData(req);
+      await User.updateOne({ _id: user._id }, { $set: { lastLogin: lastLoginData } });
+    } catch (lastLoginError) {
+      console.warn('Non-fatal error updating lastLogin metadata:', lastLoginError.message);
+    }
 
     // Sign the JWT
     const token = jwt.sign(
@@ -81,13 +85,13 @@ const loginUser = async (req, res) => {
       email: user.email || undefined,
       role: user.role,
       mosqueId: user.mosqueId,
-      lastLogin: user.lastLogin,
+      lastLogin: lastLoginData,
       token: token,
       csrfToken: csrfToken
     });
   } catch (error) {
     console.error('Login error:', error);
-    return res.status(500).json({ message: 'Server error during login' });
+    return res.status(500).json({ message: 'Server error during login: ' + (error.message || 'Internal error') });
   }
 };
 

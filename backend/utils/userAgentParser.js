@@ -49,16 +49,16 @@ const parseUserAgent = (userAgentString = '') => {
 };
 
 const extractClientIp = (req) => {
-  const forwarded = req.headers['x-forwarded-for'];
+  const forwarded = req?.headers?.['x-forwarded-for'];
   if (forwarded) {
     return forwarded.split(',')[0].trim();
   }
-  return req.ip || req.socket?.remoteAddress || '127.0.0.1';
+  return req?.ip || req?.socket?.remoteAddress || '127.0.0.1';
 };
 
 const generateLastLoginData = (req) => {
   const now = new Date();
-  const userAgent = req.headers['user-agent'] || '';
+  const userAgent = req?.headers?.['user-agent'] || '';
   const { browser, os, device } = parseUserAgent(userAgent);
   const ipAddress = extractClientIp(req);
 
