@@ -43,6 +43,9 @@ export default {
           800: '#92400e',
           900: '#78350f',
         }
+      },
+      fontFamily: {
+        arabic: ['"Scheherazade New"', '"Noto Naskh Arabic"', '"Amiri"', 'serif'],
       }
     },
   },

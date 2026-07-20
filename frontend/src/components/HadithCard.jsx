@@ -186,9 +186,9 @@ export const HadithCard = ({
         {/* Content Block - Full Page Scrollable Flow (No inner height clipping) */}
         <div className="space-y-6">
           {/* Arabic Text Block */}
-          <div className="bg-slate-50/50 p-4 sm:p-6 rounded-2xl border border-slate-100/80">
+          <div className="bg-[#FAF8F5] p-6 sm:p-10 rounded-2xl border border-amber-900/10 shadow-sm">
             <p 
-              className="text-right font-semibold text-xl sm:text-2xl lg:text-3xl text-slate-900 leading-loose tracking-wide font-serif"
+              className="text-right font-semibold text-3xl sm:text-4xl lg:text-[2.75rem] text-slate-900 leading-[2.8] font-arabic py-2"
               dir="rtl"
             >
               {hadith.arabic}
@@ -210,7 +210,7 @@ export const HadithCard = ({
             <div 
               className={`p-4 sm:p-6 rounded-2xl transition-all duration-200 ${
                 activeLang === 'ur'
-                  ? 'bg-amber-50/30 border-r-4 border-amber-500/80 text-right font-serif leading-loose text-xl sm:text-2xl text-slate-800'
+                  ? 'bg-amber-50/30 border-r-4 border-amber-500/80 text-right font-arabic leading-[2.2] text-2xl sm:text-3xl text-slate-800'
                   : 'bg-teal-50/30 border-l-4 border-teal-600/80 font-medium text-base sm:text-lg leading-relaxed text-slate-800'
               }`}
               dir={activeLang === 'ur' ? 'rtl' : 'ltr'}

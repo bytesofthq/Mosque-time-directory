@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Scheherazade+New:wght@400;600;700&family=Noto+Naskh+Arabic:wght@400;500;600;700&family=Amiri:wght@400;700&family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -11,6 +11,24 @@ body {
   color: #1e293b;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Arabic & Islamic Typography System */
+.font-arabic {
+  font-family: 'Scheherazade New', 'Noto Naskh Arabic', 'Amiri', serif;
+  font-weight: 600;
+  line-height: 2.8 !important;
+  letter-spacing: normal !important;
+  word-spacing: normal !important;
+}
+
+.arabic-text {
+  font-family: 'Scheherazade New', 'Noto Naskh Arabic', 'Amiri', serif;
+  direction: rtl;
+  text-align: right;
+  font-weight: 600;
+  line-height: 2.8 !important;
+  letter-spacing: normal !important;
 }
 
 /* Glassmorphism utility classes */

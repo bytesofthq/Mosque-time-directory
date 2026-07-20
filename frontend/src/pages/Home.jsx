@@ -566,7 +566,7 @@ const Home = () => {
             <div className="text-xs text-slate-400 text-center mt-5 space-y-1.5 border-t border-slate-100 pt-3 leading-relaxed font-semibold italic">
               <p>EN: Prayer timings are approximate. Please keep a 2-minute safety buffer before Salah.</p>
               <p className="font-sans">HI: नमाज़ का समय अनुमानित है। कृपया नमाज़ शुरू करने से पहले 2 मिनट का सुरक्षा बफ़र रखें।</p>
-              <p className="font-serif" dir="rtl">UR: نماز کے اوقات تخمینی ہیں۔ براہ کرم نماز شروع کرنے سے پہلے 2 منٹ کا حفاظتی وقفہ رکھیں۔</p>
+              <p className="font-arabic text-sm sm:text-base leading-relaxed" dir="rtl">UR: نماز کے اوقات تخمینی ہیں۔ براہ کرم نماز شروع کرنے سے پہلے 2 منٹ کا حفاظتی وقفہ رکھیں۔</p>
             </div>
           </motion.div>
 

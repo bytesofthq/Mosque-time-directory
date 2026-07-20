@@ -177,24 +177,28 @@ export const DuaCard = ({ dua }) => {
 
       {/* Body Area */}
       <div className="space-y-6">
-        {/* Arabic text */}
-        <p 
-          className="text-right font-semibold text-2xl sm:text-3xl text-slate-800 leading-loose font-serif pt-1"
-          dir="rtl"
-        >
-          {dua.arabic}
-        </p>
+        {/* Arabic text block */}
+        <div className="bg-[#FAF8F5] p-6 sm:p-8 rounded-2xl border border-amber-900/10 shadow-sm">
+          <p 
+            className="text-right font-semibold text-3xl sm:text-4xl lg:text-[2.75rem] text-slate-900 leading-[2.8] font-arabic py-2"
+            dir="rtl"
+          >
+            {dua.arabic}
+          </p>
+        </div>
 
         {/* Transliteration */}
-        <p className="text-slate-500 italic text-sm sm:text-base leading-relaxed pl-3 border-l-2 border-teal-500/20">
-          {dua.transliteration}
-        </p>
+        {dua.transliteration && (
+          <p className="text-slate-600 italic text-sm sm:text-base leading-relaxed pl-3 border-l-2 border-teal-500/30">
+            {dua.transliteration}
+          </p>
+        )}
 
         {/* Translation Body with Language-Sensitive Alignment */}
         <p 
           className={`text-slate-700 leading-relaxed ${
             activeLang === 'ur' 
-              ? 'text-right pr-4 pl-0 border-l-0 border-r-2 border-teal-500/20 font-serif leading-loose text-xl sm:text-2xl' 
+              ? 'text-right pr-4 pl-0 border-l-0 border-r-2 border-amber-500/40 font-arabic leading-[2.2] text-2xl sm:text-3xl text-slate-800' 
               : 'text-base sm:text-lg font-medium'
           }`}
           dir={activeLang === 'ur' ? 'rtl' : 'ltr'}
