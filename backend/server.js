@@ -200,13 +200,21 @@ const startServer = async () => {
             volume.books.forEach(book => {
               if (book.hadiths) {
                 book.hadiths.forEach(hadith => {
-                  flattened.push({
-                    volumeName: volume.name,
-                    bookName: book.name,
-                    info: hadith.info || '',
-                    by: hadith.by || '',
-                    text: hadith.text || ''
-                  });
+                  const text = (hadith.text || '').trim();
+                  const lower = text.toLowerCase();
+                  if (text.length >= 25 && 
+                      !lower.includes('same as above') && 
+                      !lower.includes('see hadith') && 
+                      !lower.includes('impossible to translate') &&
+                      !lower.includes('from the prophet the same as above')) {
+                    flattened.push({
+                      volumeName: volume.name,
+                      bookName: book.name,
+                      info: hadith.info || '',
+                      by: hadith.by || '',
+                      text: text
+                    });
+                  }
                 });
               }
             });

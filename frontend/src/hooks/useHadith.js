@@ -30,14 +30,14 @@ export const useHadith = () => {
   const loadHadith = useCallback(async (forceRefresh = false) => {
     if (forceRefresh) {
       cache.clearTodayHadith();
-    }
-
-    // Try to retrieve from today's cache
-    const cached = cache.getTodayHadith();
-    if (cached) {
-      setHadith(cached);
-      setError(null);
-      return;
+    } else {
+      // Try to retrieve from today's cache ONLY when not forcing a refresh
+      const cached = cache.getTodayHadith();
+      if (cached) {
+        setHadith(cached);
+        setError(null);
+        return;
+      }
     }
 
     // Abort any active Hadith loading requests
@@ -51,6 +51,7 @@ export const useHadith = () => {
 
     try {
       const data = await hadithService.fetchRandomSahihHadith({
+        forceRefresh,
         signal: abortRef.current.signal,
       });
       setHadith(data);

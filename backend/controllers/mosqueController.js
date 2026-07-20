@@ -442,34 +442,195 @@ const splitIntoChunks = (text, maxLength = 450) => {
   return chunks;
 };
 
-const translateText = async (text, targetLang) => {
-  if (!text) return '';
-  try {
-    const chunks = splitIntoChunks(text, 450);
-    const translatedChunks = [];
+const refineEnglishTranslation = (text) => {
+  if (!text || typeof text !== 'string') return '';
+  let cleaned = text
+    .replace(/\bGod's Apostle\b/gi, 'the Messenger of Allah ﷺ')
+    .replace(/\bApostle of God\b/gi, 'the Messenger of Allah ﷺ')
+    .replace(/\bMessenger of God\b/gi, 'the Messenger of Allah ﷺ')
+    .replace(/\bAllah's Apostle\b/gi, 'the Messenger of Allah ﷺ')
+    .replace(/\bApostle of Allah\b/gi, 'the Messenger of Allah ﷺ')
+    .replace(/\bthe Prophet (said|replied|stated|ordered|forbade|commanded)\b/gi, 'the Messenger of Allah ﷺ $1')
+    .replace(/\b(He|the Prophet) said:\b/g, 'the Messenger of Allah ﷺ said:')
+    .replace(/\bHis Apostle\b/gi, 'His Messenger ﷺ')
+    .replace(/\bGod's\b/g, "Allah's")
+    .replace(/\bGod\b/g, 'Allah')
+    .replace(/\s*\((?:pbuh|p\.b\.u\.h\.|pbuh|ﷺ)\)/gi, ' ﷺ')
+    .replace(/\[(?:pbuh|p\.b\.u\.h\.|pbuh|ﷺ)\]/gi, ' ﷺ')
+    .replace(/\bmay Allah be pleased with him\b/gi, '(رضي الله عنه)')
+    .replace(/\bmay Allah be pleased with her\b/gi, '(رضي الله عنها)')
+    .replace(/\bmay Allah be pleased with them\b/gi, '(رضي الله عنهم)')
+    .replace(/\bmay Allah have mercy on him\b/gi, '(رحمه الله)')
+    .replace(/\bAblution\b/gi, 'Wudu')
+    .replace(/\bAlms-giving\b/gi, 'Zakat')
+    .replace(/\bParadise\b/gi, 'Jannah')
+    .replace(/\bHellfire\b/gi, 'Jahannam')
+    .replace(/\bHell\b/g, 'Jahannam')
+    .replace(/\bSupplication\b/gi, 'Dua')
+    .replace(/\bRitual prayer\b/gi, 'Salah')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  cleaned = cleaned.replace(/Messenger of Allah(?!\s*ﷺ)/g, 'Messenger of Allah ﷺ');
+  cleaned = cleaned.replace(/ﷺ\s*ﷺ/g, 'ﷺ');
+  return cleaned;
+};
+
+const refineUrduTranslation = (text) => {
+  if (!text || typeof text !== 'string') return '';
+  let cleaned = text
+    .replace(/خدا/g, 'اللہ')
+    .replace(/پروردگار/g, 'اللہ')
+    .replace(/نبی نے کہا|رسول نے کہا|آپ نے کہا|اللہ کے رسول نے کہا/g, 'رسول اللہ ﷺ نے فرمایا')
+    .replace(/نبی اکرم نے فرمایا|نبی نے فرمایا|رسول نے فرمایا/g, 'رسول اللہ ﷺ نے فرمایا')
+    .replace(/اللہ کے رسول/g, 'رسول اللہ ﷺ')
+    .replace(/رضی اللہ عنہ/g, '(رضي الله عنه)')
+    .replace(/رضی اللہ عنہا/g, '(رضي الله عنها)')
+    .replace(/رضی اللہ عنہم/g, '(رضي الله عنهم)')
+    .replace(/رحمہ اللہ/g, '(رحمه الله)')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  cleaned = cleaned.replace(/رسول اللہ(?!\s*ﷺ)/g, 'رسول اللہ ﷺ');
+  cleaned = cleaned.replace(/ﷺ\s*ﷺ/g, 'ﷺ');
+  return cleaned;
+};
+
+const refineHindiTranslation = (text) => {
+  if (!text || typeof text !== 'string') return '';
+  let cleaned = text
+    // Deity replacements
+    .replace(/भगवान|ईश्वर|परमेश्वर|प्रभु|देवता/g, 'अल्लाह')
     
-    for (const chunk of chunks) {
-      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=en|${targetLang}`;
-      const response = await fetch(url);
+    // Prophet / Messenger speech & title replacements
+    .replace(/पैगंबर ने कहा|पैग़म्बर ने कहा|नबी ने कहा|अल्लाह के रसूल ने कहा|रसूल ने कहा|आप ने कहा|पैगंबर ने फ़रमाया|पैग़म्बर ने फ़रमाया|नबी ने फ़रमाया|अल्लाह के रसूल ने फ़रमाया|रसूल ने फ़रमाया/g, 'रसूलुल्लाह ﷺ ने फ़रमाया')
+    .replace(/अल्लाह के पैगंबर|अल्लाह के पैग़म्बर|ईश्वर के दूत|ईश्वर के संदेशवाहक|अल्लाह के संदेशवाहक|अल्लाह के दूत|भगवान के दूत/g, 'अल्लाह के रसूल ﷺ')
+    .replace(/पैगंबर|पैग़म्बर/g, 'रसूलुल्लाह ﷺ')
+    .replace(/अल्लाह के रसूल/g, 'अल्लाह के रसूल ﷺ')
+    .replace(/नबी ने/g, 'नबी करीम ﷺ ने')
+    .replace(/अल्लाह ने कहा/g, 'अल्लाह ने फ़रमाया')
+    
+    // Convert 'कहा' to 'फ़रमाया' when referring to Allah or Rasulullah / Prophet speech
+    .replace(/(अल्लाह|रसूलुल्लाह ﷺ|नबी करीम ﷺ|अल्लाह के रसूल ﷺ)\s+ने\s+कहा/g, '$1 ने फ़रमाया')
+    
+    // Afterlife terms
+    .replace(/नरक की आग/g, 'जहन्नम की आग')
+    .replace(/नरक|पाताल|यमलोक|दोज़ख/g, 'जहन्नम')
+    .replace(/स्वर्ग|बैकुंठ|देवलोक|सुरलोक|परलोक/g, 'जन्नत')
+    
+    // Worship & supplication terms
+    .replace(/प्रार्थनाएं|प्रार्थनाओं/g, 'दुआओं')
+    .replace(/प्रार्थना और उपासना|प्रार्थना/g, 'दुआ')
+    .replace(/पूजा और उपासना|पूजा|उपासना/g, 'इबादत')
+    .replace(/दान और भिक्षा|दान|भिक्षा/g, 'सदका')
+    .replace(/अभिषेक|आचमन|पवित्र स्नान/g, 'वुज़ू')
+    .replace(/तीर्थयात्रा/g, 'हज')
+    
+    // Specific Hadith phrases / Idioms
+    .replace(/दो नौकरानियाँ|दो दासी/g, 'अंसार की दो लड़कियाँ')
+    .replace(/शैतान का भजन|शैतान का गाना/g, 'शैतान का बाजा')
+    
+    // Festival terms
+    .replace(/मीठी ईद|ईद का त्योहार|ईद उल फितर|ईद-उल-फितर/g, 'ईदुल-फ़ित्र')
+    .replace(/बकरीद|ईद उल अज़हा|ईद-उल-अजहा/g, 'ईदुल-अज़हा')
+
+    // Honorifics
+    .replace(/\(?रज़ियल्लाहु अन्हु\)?/g, '(रज़ियल्लाहु अन्हु)')
+    .replace(/\(?रज़ियल्लाहु अन्हा\)?/g, '(रज़ियल्लाहु अन्हा)')
+    .replace(/\(?रज़ियल्लाहु अन्हुम\)?/g, '(रज़ियल्लाहु अन्हुम)')
+    .replace(/\(?अलैहिस्सलाम\)?/g, '(अलैहिस्सलाम)')
+    .replace(/\(?रहमतुल्लाह अलैह\)?/g, '(रहमतुल्लाह अलैह)')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // Ensure ﷺ follows रसूलुल्लाह / नबी करीम / अल्लाह के रसूल without duplication
+  cleaned = cleaned.replace(/रसूलुल्लाह(?!\s*ﷺ)/g, 'रसूलुल्लाह ﷺ');
+  cleaned = cleaned.replace(/नबी करीम(?!\s*ﷺ)/g, 'नबी करीम ﷺ');
+  cleaned = cleaned.replace(/अल्लाह के रसूल(?!\s*ﷺ)/g, 'अल्लाह के रसूल ﷺ');
+  cleaned = cleaned.replace(/ﷺ\s*ﷺ/g, 'ﷺ');
+  return cleaned;
+};
+
+const translateText = async (text, targetLang, sourceLang = 'auto') => {
+  if (!text || typeof text !== 'string') return '';
+  const trimmed = text.trim();
+  if (!trimmed) return '';
+
+  const isArabic = sourceLang === 'ar' || /[\u0600-\u06FF]/.test(trimmed);
+  const sl = isArabic ? 'ar' : (sourceLang || 'en');
+
+  if (targetLang === sl) {
+    if (targetLang === 'en') return refineEnglishTranslation(trimmed);
+    if (targetLang === 'ur') return refineUrduTranslation(trimmed);
+    if (targetLang === 'hi') return refineHindiTranslation(trimmed);
+    return trimmed;
+  }
+
+  let result = trimmed;
+
+  // Primary: Google Translate GTX endpoint with full paragraph & sentence preservation
+  try {
+    const gtxUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${targetLang}&dt=t&q=${encodeURIComponent(trimmed)}`;
+    const response = await fetch(gtxUrl);
+    if (response.ok) {
       const data = await response.json();
-      if (data && data.responseStatus === 200 && data.responseData && data.responseData.translatedText) {
-        translatedChunks.push(data.responseData.translatedText);
-      } else {
-        console.warn(`Translation API response warning/error (Status: ${data?.responseStatus}):`, data?.responseDetails || 'No details');
-        translatedChunks.push(chunk);
+      if (data && Array.isArray(data[0])) {
+        const translatedSentences = data[0]
+          .map((item) => (Array.isArray(item) && item[0] ? item[0] : ''))
+          .filter(Boolean);
+        const fullTranslation = translatedSentences.join('');
+        if (fullTranslation && !fullTranslation.startsWith('MYMEMORY') && fullTranslation !== trimmed) {
+          result = fullTranslation;
+        }
       }
     }
-    
-    return translatedChunks.join(' ');
-  } catch (err) {
-    console.error(`Translation error to ${targetLang}:`, err.message);
-    return text;
+  } catch (gtxError) {
+    console.warn(`Backend GTX translation (${sl}->${targetLang}) failed, falling back:`, gtxError.message);
   }
+
+  // Fallback: MyMemory API with chunking
+  if (result === trimmed) {
+    try {
+      const chunks = splitIntoChunks(trimmed, 400);
+      const translatedChunks = [];
+      
+      for (const chunk of chunks) {
+        const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=${sl}|${targetLang}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        if (data && data.responseStatus === 200 && data.responseData && data.responseData.translatedText) {
+          const transText = data.responseData.translatedText.trim();
+          if (!transText.startsWith('MYMEMORY WARNING')) {
+            translatedChunks.push(transText);
+            continue;
+          }
+        }
+        translatedChunks.push(chunk);
+      }
+      
+      result = translatedChunks.join(' ');
+    } catch (err) {
+      console.error(`Backend translation error (${sl}->${targetLang}):`, err.message);
+    }
+  }
+
+  if (targetLang === 'en') return refineEnglishTranslation(result);
+  if (targetLang === 'ur') return refineUrduTranslation(result);
+  if (targetLang === 'hi') return refineHindiTranslation(result);
+
+  return result;
 };
 
 const getHadithOfTheDay = async (req, res) => {
   try {
-    const totalCount = await Hadith.countDocuments();
+    const validFilter = { 
+      text: { 
+        $exists: true, 
+        $not: /same as above|see hadith|impossible to translate|as above/i 
+      } 
+    };
+
+    const totalCount = await Hadith.countDocuments(validFilter);
     if (totalCount === 0) {
       return res.status(404).json({
         success: false,
@@ -496,7 +657,7 @@ const getHadithOfTheDay = async (req, res) => {
       index = Math.abs(hash) % totalCount;
     }
 
-    const selected = await Hadith.findOne().skip(index);
+    const selected = await Hadith.findOne(validFilter).skip(index);
     if (!selected) {
       return res.status(404).json({
         success: false,
